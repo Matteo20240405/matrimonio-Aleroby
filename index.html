@@ -13,6 +13,10 @@
         .text-rust { color: #7a3e2e; }
         .animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        #admin-trigger:active { transform: scale(0.9); transition: 0.1s; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -82,19 +86,28 @@
     </section>
 
     <!-- FOOTER & ADMIN AREA -->
-    <footer class="py-16 text-center bg-stone-900 text-stone-500">
-        <button id="admin-trigger" class="text-3xl font-bold italic font-cursive text-white mb-4 hover:opacity-80 transition">A & R</button>
-        <p class="uppercase text-[10px] tracking-widest mb-6">11 Luglio 2026 • Vendone</p>
+    <footer class="py-20 text-center bg-stone-900 text-stone-500">
+        <!-- TRIGGER ADMIN: Clicca 3 volte qui sotto -->
+        <div id="admin-trigger" class="inline-block cursor-pointer p-4 mb-4 select-none">
+            <span class="text-4xl font-bold italic font-cursive text-white block">A & R</span>
+            <p class="uppercase text-[10px] tracking-widest mt-2">11 Luglio 2026 • Vendone</p>
+        </div>
         
         <!-- Pannello Admin Nascosto -->
-        <div id="admin-panel" class="hidden mt-8 px-6 animate-fade-in">
-            <div class="max-w-md mx-auto bg-white/5 p-6 rounded-2xl border border-white/10">
-                <p class="text-white text-sm mb-4">Invitati confermati: <span id="count-si" class="font-bold text-green-400">0</span></p>
-                <button id="export-btn" class="bg-white text-black px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-stone-200 transition">
+        <div id="admin-panel" class="hidden mt-10 px-6 animate-fade-in text-white">
+            <div class="max-w-md mx-auto bg-white/10 p-8 rounded-[2rem] border border-white/20 backdrop-blur-lg">
+                <h3 class="font-cursive text-2xl mb-4">Pannello Sposi</h3>
+                <p class="text-sm mb-6">Invitati confermati (Sì): <span id="count-si" class="font-bold text-green-400 text-xl">0</span></p>
+                
+                <button id="export-btn" class="w-full bg-white text-black py-4 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-stone-200 transition mb-6 shadow-lg">
                     Scarica Lista Excel (CSV)
                 </button>
-                <div id="guest-list" class="mt-4 text-left text-[10px] max-h-40 overflow-y-auto border-t border-white/10 pt-4">
-                    <!-- Lista nomi admin -->
+                
+                <div class="text-left">
+                    <p class="text-[10px] uppercase tracking-widest opacity-50 mb-3 border-b border-white/10 pb-2">Tutte le risposte:</p>
+                    <div id="guest-list" class="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar text-[12px]">
+                        <!-- Caricamento dinamico invitati -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -104,105 +117,165 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
-        const firebaseConfig = JSON.parse('__firebase_config');
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const appId = "wedding-alessia-roberto-2026-v1";
-
-        let attending = 'si';
-        let rsvpData = [];
-        let clicks = 0;
-
-        signInAnonymously(auth).then(() => {
-            // Listener Foto
-            const qPhotos = query(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), orderBy('timestamp', 'desc'));
-            onSnapshot(qPhotos, (snap) => {
-                const grid = document.getElementById('photo-grid');
-                grid.innerHTML = '';
-                snap.forEach(doc => {
-                    const d = doc.data();
-                    const div = document.createElement('div');
-                    div.className = "relative aspect-square rounded-3xl overflow-hidden shadow-xl border-4 border-white animate-fade-in";
-                    div.innerHTML = `<img src="${d.url}" class="w-full h-full object-cover">`;
-                    grid.appendChild(div);
-                });
-            });
-
-            // Listener RSVP per Admin
-            const qRsvp = query(collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), orderBy('timestamp', 'desc'));
-            onSnapshot(qRsvp, (snap) => {
-                rsvpData = snap.docs.map(d => d.data());
-                const si = rsvpData.filter(r => r.attending === 'si').length;
-                document.getElementById('count-si').innerText = si;
-                
-                const list = document.getElementById('guest-list');
-                list.innerHTML = rsvpData.map(r => `
-                    <div class="flex justify-between py-1 border-b border-white/5">
-                        <span class="text-white/80">${r.name}</span>
-                        <span class="${r.attending === 'si' ? 'text-green-400' : 'text-red-400'} uppercase">${r.attending}</span>
-                    </div>
-                `).join('');
-            });
-        });
-
-        // RSVP Buttons
-        document.getElementById('btn-si').onclick = () => { attending = 'si'; updateBtns(); };
-        document.getElementById('btn-no').onclick = () => { attending = 'no'; updateBtns(); };
-        function updateBtns() {
-            document.getElementById('btn-si').className = attending === 'si' ? "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-rust text-white shadow-xl" : "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-50 text-stone-300";
-            document.getElementById('btn-no').className = attending === 'no' ? "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-800 text-white shadow-xl" : "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-50 text-stone-300";
+        // Gestione sicura della configurazione Firebase
+        let firebaseConfig;
+        try {
+            const configStr = '__firebase_config';
+            if (configStr.startsWith('{')) {
+                firebaseConfig = JSON.parse(configStr);
+            } else {
+                // Fallback se il segnaposto non è sostituito (usato durante lo sviluppo locale o GitHub)
+                console.warn("Firebase config placeholder not replaced. Using local context if available.");
+                // In un ambiente reale qui inseriresti la tua config se desiderata, 
+                // ma per il Canvas di Gemini usiamo il segnaposto dinamico.
+            }
+        } catch (e) {
+            console.error("Errore inizializzazione Firebase Config:", e);
         }
 
-        // Upload
-        document.getElementById('photo-input').onchange = (e) => {
-            const file = e.target.files[0];
-            if(!file) return;
-            const reader = new FileReader();
-            document.getElementById('upload-text').innerText = "INVIO...";
-            reader.onloadend = async () => {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), { url: reader.result, timestamp: serverTimestamp() });
-                document.getElementById('upload-text').innerText = "CARICA FOTO";
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : "wedding-alessia-roberto-2026-v1";
+
+            let attending = 'si';
+            let rsvpData = [];
+            let clicks = 0;
+            let lastClick = 0;
+
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    startListeners();
+                } catch (e) {
+                    console.error("Auth Error:", e);
+                }
             };
-            reader.readAsDataURL(file);
-        };
 
-        // Submit RSVP
-        document.getElementById('rsvp-form').onsubmit = async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('guest-name').value;
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), { name, attending, timestamp: serverTimestamp() });
-            document.getElementById('rsvp-container').innerHTML = '<div class="text-center py-12 font-cursive text-4xl text-rust">Grazie di cuore! ❤️</div>';
-        };
+            const startListeners = () => {
+                const user = auth.currentUser;
+                if (!user) return;
 
-        // ADMIN PANEL TRIGGER (3 click sul logo nel footer)
-        document.getElementById('admin-trigger').onclick = () => {
-            clicks++;
-            if(clicks >= 3) {
-                document.getElementById('admin-panel').classList.toggle('hidden');
-                clicks = 0;
+                // Gallery Foto
+                const qPhotos = query(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), orderBy('timestamp', 'desc'));
+                onSnapshot(qPhotos, (snap) => {
+                    const grid = document.getElementById('photo-grid');
+                    grid.innerHTML = '';
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        const div = document.createElement('div');
+                        div.className = "relative aspect-square rounded-3xl overflow-hidden shadow-xl border-4 border-white animate-fade-in";
+                        div.innerHTML = `<img src="${d.url}" class="w-full h-full object-cover">`;
+                        grid.appendChild(div);
+                    });
+                }, (err) => console.error("Foto Error:", err));
+
+                // RSVP per Admin
+                const qRsvp = query(collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), orderBy('timestamp', 'desc'));
+                onSnapshot(qRsvp, (snap) => {
+                    rsvpData = snap.docs.map(d => d.data());
+                    const si = rsvpData.filter(r => r.attending === 'si').length;
+                    document.getElementById('count-si').innerText = si;
+                    
+                    const list = document.getElementById('guest-list');
+                    list.innerHTML = rsvpData.map(r => `
+                        <div class="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5 mb-1">
+                            <span class="font-medium">${r.name}</span>
+                            <span class="px-3 py-1 rounded-full text-[9px] font-bold ${r.attending === 'si' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'} uppercase">${r.attending}</span>
+                        </div>
+                    `).join('');
+                }, (err) => console.error("RSVP Error:", err));
+            };
+
+            initAuth();
+
+            // Toggle RSVP UI
+            document.getElementById('btn-si').onclick = () => { attending = 'si'; updateBtns(); };
+            document.getElementById('btn-no').onclick = () => { attending = 'no'; updateBtns(); };
+            function updateBtns() {
+                document.getElementById('btn-si').className = attending === 'si' ? "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-rust text-white shadow-xl transition-all" : "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-50 text-stone-300 transition-all";
+                document.getElementById('btn-no').className = attending === 'no' ? "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-800 text-white shadow-xl transition-all" : "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-50 text-stone-300 transition-all";
             }
-            setTimeout(() => clicks = 0, 2000);
-        };
 
-        // Export CSV
-        document.getElementById('export-btn').onclick = () => {
-            if(rsvpData.length === 0) return;
-            const headers = ["Nome", "Partecipa", "Data Invio"];
-            const rows = rsvpData.map(r => [
-                `"${r.name}"`, 
-                r.attending.toUpperCase(), 
-                r.timestamp ? new Date(r.timestamp.seconds * 1000).toLocaleString() : '-'
-            ]);
-            const content = "\uFEFF" + [headers, ...rows].map(e => e.join(";")).join("\n");
-            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "lista_invitati.csv";
-            link.click();
-        };
+            // Upload Foto
+            document.getElementById('photo-input').onchange = (e) => {
+                const user = auth.currentUser;
+                if(!user) return;
+                const file = e.target.files[0];
+                if(!file) return;
+                const reader = new FileReader();
+                document.getElementById('upload-text').innerText = "INVIO...";
+                reader.onloadend = async () => {
+                    try {
+                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), { 
+                            url: reader.result, 
+                            timestamp: serverTimestamp(),
+                            userId: user.uid
+                        });
+                    } catch(e) { console.error(e); }
+                    document.getElementById('upload-text').innerText = "CARICA FOTO";
+                };
+                reader.readAsDataURL(file);
+            };
+
+            // Submit RSVP
+            document.getElementById('rsvp-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const user = auth.currentUser;
+                if(!user) return;
+                const name = document.getElementById('guest-name').value;
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), { 
+                        name, 
+                        attending, 
+                        timestamp: serverTimestamp(),
+                        userId: user.uid
+                    });
+                    document.getElementById('rsvp-container').innerHTML = '<div class="text-center py-12 font-cursive text-4xl text-rust animate-fade-in">Grazie, risposta salvata! ❤️</div>';
+                } catch(e) { alert("Errore invio. Riprova."); }
+            };
+
+            // LOGICA ADMIN (3 click veloci)
+            document.getElementById('admin-trigger').onclick = () => {
+                const now = Date.now();
+                if (now - lastClick > 800) clicks = 0; 
+                clicks++;
+                lastClick = now;
+                
+                if(clicks === 3) {
+                    const panel = document.getElementById('admin-panel');
+                    panel.classList.toggle('hidden');
+                    if(!panel.classList.contains('hidden')) {
+                        panel.scrollIntoView({ behavior: 'smooth' });
+                    }
+                    clicks = 0;
+                }
+            };
+
+            // Export CSV
+            document.getElementById('export-btn').onclick = () => {
+                if(rsvpData.length === 0) return;
+                const headers = ["Nome", "Partecipa", "Data"];
+                const rows = rsvpData.map(r => [
+                    `"${r.name}"`, 
+                    r.attending.toUpperCase(), 
+                    r.timestamp ? new Date(r.timestamp.seconds * 1000).toLocaleString() : '-'
+                ]);
+                const content = "\uFEFF" + [headers, ...rows].map(e => e.join(";")).join("\n");
+                const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "invitati_matrimonio.csv";
+                link.click();
+            };
+        }
     </script>
 </body>
 </html>
