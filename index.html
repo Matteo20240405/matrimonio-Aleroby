@@ -1,0 +1,172 @@
+!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alessia & Roberto - 11 Luglio 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Playfair Display', serif; background-color: #fff4e6; color: #1c1917; }
+        .font-cursive { font-family: 'Dancing Script', cursive; }
+        .bg-rust { background-color: #7a3e2e; }
+        .text-rust { color: #7a3e2e; }
+        .animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="fixed top-0 w-full z-50 py-5 px-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent">
+        <span class="text-3xl font-bold italic text-white font-cursive">A & R</span>
+        <a href="#rsvp" class="bg-white/20 backdrop-blur-md px-6 py-2 rounded-full border border-white/30 text-white text-[11px] font-bold uppercase tracking-widest shadow-lg">RSVP</a>
+    </nav>
+
+    <!-- HERO -->
+    <header class="relative w-full h-[70vh] flex flex-col justify-end items-center overflow-hidden">
+        <img src="https://raw.githubusercontent.com/Matteo20240405/matrimonio-Aleroby/main/IMG-20260103-WA0013.jpg" class="absolute inset-0 w-full h-full object-cover" alt="Sposi">
+        <div class="absolute inset-0 bg-gradient-to-t from-[#fff4e6] via-transparent to-black/20 z-10"></div>
+        <div class="relative z-20 text-center pb-16 px-6 animate-fade-in">
+            <h1 class="text-6xl md:text-8xl mb-3 italic text-white drop-shadow-2xl font-cursive">Alessia & Roberto</h1>
+            <div class="w-12 h-0.5 bg-white/60 mx-auto mb-4"></div>
+            <p class="text-white tracking-[0.4em] uppercase text-[11px] font-bold opacity-90 drop-shadow-lg">11 Luglio 2026 • Vendone</p>
+        </div>
+    </header>
+
+    <!-- GALLERIA -->
+    <section class="py-16 px-5 max-w-4xl mx-auto text-center">
+        <h2 class="text-5xl text-rust mb-4 italic font-cursive">I vostri scatti</h2>
+        <p class="text-stone-500 text-[10px] uppercase tracking-[0.2em] mb-12 italic">Aiutateci a ricordare ogni istante</p>
+        
+        <div class="mb-14">
+            <label class="cursor-pointer bg-rust text-white px-10 py-5 rounded-full font-bold uppercase text-[12px] tracking-widest shadow-2xl inline-flex items-center gap-3 active:scale-95 transition-all">
+                <span>📷</span> <span id="upload-text">CARICA UNA FOTO</span>
+                <input type="file" id="photo-input" accept="image/*" class="hidden">
+            </label>
+        </div>
+
+        <div id="photo-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <!-- Foto dinamiche -->
+        </div>
+    </section>
+
+    <!-- LISTA NOZZE -->
+    <section class="py-20 px-6 text-center bg-white border-y border-orange-100 shadow-inner">
+        <h2 class="text-4xl text-rust mb-8 italic font-cursive">Un pensiero per noi</h2>
+        <div class="max-w-xs mx-auto p-8 bg-stone-50 rounded-[2.5rem] border border-stone-200 shadow-sm mb-8 relative">
+            <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-rust text-white text-[9px] px-4 py-1.5 rounded-full uppercase font-bold tracking-widest shadow-md">IBAN Viaggio</div>
+            <p class="text-stone-800 font-mono text-[11px] break-all font-bold tracking-tight pt-2">IT28W0538710611000004465451</p>
+        </div>
+        <a href="https://paypal.me/AlessiaRabellino" target="_blank" class="inline-flex items-center gap-2 bg-[#0070ba] text-white px-12 py-4 rounded-full font-bold text-[11px] uppercase tracking-widest shadow-xl active:scale-95 transition-transform">
+            Regalo con PayPal
+        </a>
+    </section>
+
+    <!-- RSVP -->
+    <section id="rsvp" class="py-20 px-6 pb-32">
+        <div class="max-w-sm mx-auto bg-white p-10 rounded-[3.5rem] shadow-2xl border border-orange-50" id="rsvp-container">
+            <form id="rsvp-form" class="space-y-10 text-center">
+                <div class="space-y-2">
+                    <h2 class="text-4xl text-rust italic font-cursive">Ci sarete?</h2>
+                    <p class="text-stone-400 text-[10px] uppercase tracking-[0.2em]">Fateci sapere entro fine Maggio</p>
+                </div>
+                <input type="text" id="guest-name" required placeholder="Il vostro nome" class="w-full border-b-2 border-stone-100 py-3 text-center italic text-xl focus:outline-none focus:border-rust bg-transparent">
+                <div class="flex gap-4">
+                    <button type="button" id="btn-si" class="flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-rust text-white shadow-xl">Sì</button>
+                    <button type="button" id="btn-no" class="flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-50 text-stone-300">No</button>
+                </div>
+                <button type="submit" class="w-full bg-rust text-white py-6 rounded-full font-bold uppercase tracking-[0.2em] text-[12px] shadow-2xl active:scale-95 transition-transform">Invia Risposta</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- FIREBASE SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // Configurazione flessibile
+        const firebaseConfig = {
+            apiKey: "", 
+            authDomain: "generativelanguage.googleapis.com",
+            projectId: "generativelanguage",
+            storageBucket: "generativelanguage.appspot.com",
+            messagingSenderId: "0",
+            appId: "0"
+        };
+
+        let finalConfig = firebaseConfig;
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                finalConfig = JSON.parse(__firebase_config);
+            }
+        } catch(e) {
+            console.log("Using default config");
+        }
+
+        const appId = "wedding-alessia-roberto-final-2026";
+        const app = initializeApp(finalConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let attending = 'si';
+
+        // Inizializzazione
+        signInAnonymously(auth).then(() => {
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), orderBy('timestamp', 'desc'));
+            onSnapshot(q, (snapshot) => {
+                const grid = document.getElementById('photo-grid');
+                grid.innerHTML = '';
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const div = document.createElement('div');
+                    div.className = "relative aspect-square rounded-3xl overflow-hidden shadow-xl border-4 border-white animate-fade-in";
+                    div.innerHTML = `<img src="${data.url}" class="w-full h-full object-cover">`;
+                    grid.appendChild(div);
+                });
+            }, (err) => console.error("Database error:", err));
+        });
+
+        // Bottoni RSVP
+        document.getElementById('btn-si').onclick = () => { attending = 'si'; updateBtns(); };
+        document.getElementById('btn-no').onclick = () => { attending = 'no'; updateBtns(); };
+
+        function updateBtns() {
+            document.getElementById('btn-si').className = attending === 'si' ? "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-rust text-white shadow-xl" : "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-50 text-stone-300";
+            document.getElementById('btn-no').className = attending === 'no' ? "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-800 text-white shadow-xl" : "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-50 text-stone-300";
+        }
+
+        // Upload Foto
+        document.getElementById('photo-input').onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            document.getElementById('upload-text').innerText = "INVIO...";
+            reader.onloadend = async () => {
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), {
+                        url: reader.result,
+                        timestamp: serverTimestamp()
+                    });
+                } catch (err) { alert("Errore"); }
+                document.getElementById('upload-text').innerText = "CARICA UNA FOTO";
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // Submit RSVP
+        document.getElementById('rsvp-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('guest-name').value;
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), {
+                    name, attending, timestamp: serverTimestamp()
+                });
+                document.getElementById('rsvp-container').innerHTML = '<div class="text-center py-12 font-cursive text-4xl text-rust">Grazie di cuore! ❤️</div>';
+            } catch (err) { alert("Errore invio"); }
+        };
+    </script>
+</body>
+</html>
