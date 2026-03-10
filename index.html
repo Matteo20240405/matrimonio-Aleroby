@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 
-    <!-- React & Babel for JSX in browser -->
+    <!-- React & Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -37,22 +37,34 @@
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc, query } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
-        // Esponiamo le funzioni globalmente per React
+        // Configurazione fornita dall'utente
+        const firebaseConfig = {
+            apiKey: "AIzaSyBkRq8hMwlsSjhc-4Z8mMGDsbWvx295F54",
+            authDomain: "matrimonio-ale-e-roby-5248c.firebaseapp.com",
+            projectId: "matrimonio-ale-e-roby-5248c",
+            storageBucket: "matrimonio-ale-e-roby-5248c.firebasestorage.app",
+            messagingSenderId: "797207643656",
+            appId: "1:797207643656:web:177acffeab23841cb6f3bd"
+        };
+
+        // Esponiamo le funzioni e la config globalmente
         window.FB = { 
             initializeApp, getFirestore, collection, addDoc, onSnapshot, 
             serverTimestamp, deleteDoc, doc, getAuth, signInAnonymously, 
-            signInWithCustomToken, onAuthStateChanged, query 
+            signInWithCustomToken, onAuthStateChanged, query, 
+            config: firebaseConfig 
         };
     </script>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- COSTANTI ---
         const URL_FOTO_HERO = "https://raw.githubusercontent.com/Matteo20240405/matrimonio-Aleroby/main/IMG-20260103-WA0013.jpg";
         const URL_FOTO_CHIESA = "https://i.ibb.co/yFb8ZGw1/chiesa.jpg"; 
         const URL_FOTO_LOCATION = "https://i.ibb.co/8DZVrcC4/borgofasceo.jpg";
-        const DATA_MATRIMONIO = new Date("July 11, 2026 16:30:00");
+        
+        // Data del matrimonio impostata correttamente
+        const DATA_MATRIMONIO = new Date("2026-07-11T16:30:00");
 
         const compressImage = (base64Str, maxWidth = 1024, maxHeight = 1024) => {
             return new Promise((resolve) => {
@@ -91,23 +103,14 @@
             const clickTimer = useRef(null);
 
             useEffect(() => {
-                let config;
-                try {
-                    config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-                } catch (e) { return; }
+                if (!window.FB || !window.FB.config) return;
 
-                if (!config || !window.FB) return;
-
-                const app = window.FB.initializeApp(config);
+                const app = window.FB.initializeApp(window.FB.config);
                 const auth = window.FB.getAuth(app);
                 
                 const initAuth = async () => {
                     try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await window.FB.signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await window.FB.signInAnonymously(auth);
-                        }
+                        await window.FB.signInAnonymously(auth);
                     } catch (err) { console.error("Errore Auth:", err); }
                 };
                 initAuth();
@@ -132,7 +135,7 @@
             useEffect(() => {
                 if (!user || !window.FB) return;
                 const db = window.FB.getFirestore();
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
+                const appId = 'wedding-alessia-roberto-2026';
                 
                 const unsubP = window.FB.onSnapshot(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'), 
                     snap => {
@@ -166,7 +169,7 @@
                     try {
                         const compressedBase64 = await compressImage(reader.result);
                         const db = window.FB.getFirestore();
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
+                        const appId = 'wedding-alessia-roberto-2026';
                         await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'), {
                             url: compressedBase64, 
                             userId: user.uid, 
@@ -182,16 +185,13 @@
             const handleDeletePhoto = async (e, photoId) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
-                // Usiamo una variabile per gestire il caricamento durante l'eliminazione
                 try {
                     const db = window.FB.getFirestore();
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
-                    // Riferimento corretto al documento
+                    const appId = 'wedding-alessia-roberto-2026';
                     const photoRef = window.FB.doc(db, 'artifacts', appId, 'public', 'data', 'photos', photoId);
                     await window.FB.deleteDoc(photoRef);
                 } catch (err) {
-                    console.error("Errore eliminazione definitiva:", err);
+                    console.error("Errore eliminazione:", err);
                 }
             };
 
@@ -241,7 +241,7 @@
                                 <div className="p-8 text-center">
                                     <h3 className="text-2xl font-cursive text-[#7a3e2e] mb-2">La Cerimonia</h3>
                                     <p className="text-sm text-stone-600 mb-6 italic">Santuario di Maria Santissima, Vendone<br/>Ore 16:30</p>
-                                    <a href="https://maps.google.com/?q=Vendone" target="_blank" className="inline-block border-b border-[#7a3e2e] text-[#7a3e2e] text-[10px] font-bold uppercase tracking-widest pb-1 hover:opacity-70 transition">Apri Mappa</a>
+                                    <a href="https://maps.google.com/?q=Santuario+Maria+Santissima+Vendone" target="_blank" className="inline-block border-b border-[#7a3e2e] text-[#7a3e2e] text-[10px] font-bold uppercase tracking-widest pb-1 hover:opacity-70 transition">Apri Mappa</a>
                                 </div>
                             </div>
 
@@ -264,7 +264,7 @@
                                 <form onSubmit={async (e) => {
                                     e.preventDefault();
                                     const db = window.FB.getFirestore();
-                                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
+                                    const appId = 'wedding-alessia-roberto-2026';
                                     await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), { ...formData, timestamp: window.FB.serverTimestamp() });
                                     setSubmitted(true);
                                 }} className="space-y-8">
@@ -299,7 +299,6 @@
                                         <button 
                                             onClick={(e) => handleDeletePhoto(e, p.id)} 
                                             className="absolute top-2 right-2 bg-white/90 p-2 rounded-full text-red-600 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shadow-lg z-10 scale-90 active:scale-75"
-                                            title="Elimina foto"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -330,7 +329,7 @@
 
                     {selectedPhoto && (
                         <div className="fixed inset-0 z-[1000] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in" onClick={() => setSelectedPhoto(null)}>
-                            <img src={selectedPhoto} className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" alt="Foto ingrandita" />
+                            <img src={selectedPhoto} className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
                         </div>
                     )}
                 </div>
