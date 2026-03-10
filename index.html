@@ -7,16 +7,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Playfair Display', serif; background-color: #fff4e6; color: #1c1917; }
+        body { font-family: 'Playfair Display', serif; background-color: #fff4e6; color: #1c1917; scroll-behavior: smooth; }
         .font-cursive { font-family: 'Dancing Script', cursive; }
         .bg-rust { background-color: #7a3e2e; }
         .text-rust { color: #7a3e2e; }
         .animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        #admin-trigger:active { transform: scale(0.9); transition: 0.1s; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(122, 62, 46, 0.3); border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -27,14 +25,13 @@
         <a href="#rsvp" class="bg-white/20 backdrop-blur-md px-6 py-2 rounded-full border border-white/30 text-[11px] font-bold uppercase tracking-widest shadow-lg">RSVP</a>
     </nav>
 
-    <!-- HERO -->
-    <header class="relative w-full h-[75vh] flex flex-col justify-end items-center overflow-hidden">
+    <!-- HERO SECTION -->
+    <header class="relative w-full h-[65vh] flex flex-col justify-end items-center overflow-hidden">
         <img src="https://raw.githubusercontent.com/Matteo20240405/matrimonio-Aleroby/main/IMG-20260103-WA0013.jpg" class="absolute inset-0 w-full h-full object-cover" alt="Alessia e Roberto">
         <div class="absolute inset-0 bg-gradient-to-t from-[#fff4e6] via-transparent to-black/30 z-10"></div>
-        <div class="relative z-20 text-center pb-16 px-6 animate-fade-in">
-            <h1 class="text-6xl md:text-8xl mb-3 italic text-white drop-shadow-2xl font-cursive">Alessia & Roberto</h1>
-            <div class="w-12 h-0.5 bg-white/60 mx-auto mb-4"></div>
-            <p class="text-white tracking-[0.4em] uppercase text-[11px] font-bold opacity-90 drop-shadow-lg">11 Luglio 2026 • Vendone</p>
+        <div class="relative z-20 text-center pb-12 px-6 animate-fade-in">
+            <h1 class="text-5xl md:text-8xl mb-2 italic text-white drop-shadow-2xl font-cursive">Alessia & Roberto</h1>
+            <p class="text-white tracking-[0.4em] uppercase text-[10px] font-bold opacity-90 drop-shadow-lg">11 Luglio 2026 • Vendone</p>
         </div>
     </header>
 
@@ -45,13 +42,13 @@
         
         <div class="mb-14">
             <label class="cursor-pointer bg-rust text-white px-10 py-5 rounded-full font-bold uppercase text-[12px] tracking-widest shadow-2xl inline-flex items-center gap-3 active:scale-95 transition-all">
-                <span>📷</span> <span id="upload-text">CARICA FOTO</span>
+                <span>📷</span> <span id="upload-text">CARICA UNA FOTO</span>
                 <input type="file" id="photo-input" accept="image/*" class="hidden">
             </label>
         </div>
 
         <div id="photo-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <!-- Foto dinamiche -->
+            <!-- Le foto appariranno qui tramite Firebase -->
         </div>
     </section>
 
@@ -60,14 +57,15 @@
         <h2 class="text-4xl text-rust mb-8 italic font-cursive">Un pensiero per noi</h2>
         <div class="max-w-xs mx-auto p-8 bg-stone-50 rounded-[2.5rem] border border-stone-200 shadow-sm mb-8 relative">
             <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-rust text-white text-[9px] px-4 py-1.5 rounded-full uppercase font-bold tracking-widest shadow-md">IBAN Viaggio</div>
-            <p class="text-stone-800 font-mono text-[11px] break-all font-bold tracking-tight pt-2">IT28W0538710611000004465451</p>
+            <p id="iban-text" class="text-stone-800 font-mono text-[11px] break-all font-bold tracking-tight pt-2 cursor-pointer">IT28W0538710611000004465451</p>
+            <p class="text-[8px] text-stone-400 mt-2 uppercase tracking-tighter">Tocca per copiare l'IBAN</p>
         </div>
         <a href="https://paypal.me/AlessiaRabellino" target="_blank" class="inline-flex items-center gap-2 bg-[#0070ba] text-white px-12 py-4 rounded-full font-bold text-[11px] uppercase tracking-widest shadow-xl active:scale-95 transition-transform">
             Regalo con PayPal
         </a>
     </section>
 
-    <!-- RSVP -->
+    <!-- RSVP FORM -->
     <section id="rsvp" class="py-20 px-6 pb-32 bg-[#fff4e6]">
         <div class="max-w-sm mx-auto bg-white p-10 rounded-[3.5rem] shadow-2xl border border-orange-50" id="rsvp-container">
             <form id="rsvp-form" class="space-y-10 text-center">
@@ -75,207 +73,142 @@
                     <h2 class="text-4xl text-rust italic font-cursive">Ci sarete?</h2>
                     <p class="text-stone-400 text-[10px] uppercase tracking-[0.2em]">Confermate la vostra presenza</p>
                 </div>
-                <input type="text" id="guest-name" required placeholder="Il vostro nome" class="w-full border-b-2 border-stone-100 py-3 text-center italic text-xl focus:outline-none focus:border-rust bg-transparent">
+                <input type="text" id="guest-name" required placeholder="Inserisci il tuo nome" class="w-full border-b-2 border-stone-100 py-3 text-center italic text-xl focus:outline-none focus:border-rust bg-transparent">
                 <div class="flex gap-4">
                     <button type="button" id="btn-si" class="flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-rust text-white shadow-xl">Sì</button>
                     <button type="button" id="btn-no" class="flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-50 text-stone-300">No</button>
                 </div>
-                <button type="submit" class="w-full bg-rust text-white py-6 rounded-full font-bold uppercase tracking-[0.2em] text-[12px] shadow-2xl active:scale-95 transition-transform">Invia Risposta</button>
+                <button type="submit" id="submit-rsvp" class="w-full bg-rust text-white py-6 rounded-full font-bold uppercase tracking-[0.2em] text-[12px] shadow-2xl active:scale-95 transition-transform">Invia Risposta</button>
             </form>
         </div>
     </section>
 
-    <!-- FOOTER & ADMIN AREA -->
+    <!-- FOOTER -->
     <footer class="py-20 text-center bg-stone-900 text-stone-500">
-        <!-- TRIGGER ADMIN: Clicca 3 volte qui sotto -->
-        <div id="admin-trigger" class="inline-block cursor-pointer p-4 mb-4 select-none">
+        <div id="admin-trigger" class="inline-block cursor-pointer p-4 select-none">
             <span class="text-4xl font-bold italic font-cursive text-white block">A & R</span>
             <p class="uppercase text-[10px] tracking-widest mt-2">11 Luglio 2026 • Vendone</p>
         </div>
         
-        <!-- Pannello Admin Nascosto -->
-        <div id="admin-panel" class="hidden mt-10 px-6 animate-fade-in text-white">
-            <div class="max-w-md mx-auto bg-white/10 p-8 rounded-[2rem] border border-white/20 backdrop-blur-lg">
-                <h3 class="font-cursive text-2xl mb-4">Pannello Sposi</h3>
-                <p class="text-sm mb-6">Invitati confermati (Sì): <span id="count-si" class="font-bold text-green-400 text-xl">0</span></p>
-                
-                <button id="export-btn" class="w-full bg-white text-black py-4 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-stone-200 transition mb-6 shadow-lg">
-                    Scarica Lista Excel (CSV)
-                </button>
-                
-                <div class="text-left">
-                    <p class="text-[10px] uppercase tracking-widest opacity-50 mb-3 border-b border-white/10 pb-2">Tutte le risposte:</p>
-                    <div id="guest-list" class="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar text-[12px]">
-                        <!-- Caricamento dinamico invitati -->
-                    </div>
-                </div>
+        <div id="admin-panel" class="hidden mt-10 px-6 text-white animate-fade-in">
+            <div class="max-w-md mx-auto bg-white/10 p-8 rounded-[2rem] border border-white/20 text-left backdrop-blur-md">
+                <h3 class="font-cursive text-2xl mb-4 text-center">Pannello Sposi</h3>
+                <div id="guest-list" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar text-[12px] mb-6 pr-2"></div>
+                <button id="export-btn" class="w-full bg-white text-black py-4 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg">Scarica Lista (CSV)</button>
             </div>
         </div>
     </footer>
 
-    <!-- SCRIPTS -->
+    <!-- FIREBASE LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
-        // Gestione sicura della configurazione Firebase
-        let firebaseConfig;
-        try {
-            const configStr = '__firebase_config';
-            if (configStr.startsWith('{')) {
-                firebaseConfig = JSON.parse(configStr);
-            } else {
-                // Fallback se il segnaposto non è sostituito (usato durante lo sviluppo locale o GitHub)
-                console.warn("Firebase config placeholder not replaced. Using local context if available.");
-                // In un ambiente reale qui inseriresti la tua config se desiderata, 
-                // ma per il Canvas di Gemini usiamo il segnaposto dinamico.
-            }
-        } catch (e) {
-            console.error("Errore inizializzazione Firebase Config:", e);
+        const firebaseConfig = {
+            apiKey: "AIzaSyBkRq8hMwlsSjhc-4Z8mMGDsbWvx295F54",
+            authDomain: "matrimonio-ale-e-roby-5248c.firebaseapp.com",
+            projectId: "matrimonio-ale-e-roby-5248c",
+            storageBucket: "matrimonio-ale-e-roby-5248c.firebasestorage.app",
+            messagingSenderId: "797207643656",
+            appId: "1:797207643656:web:177acffeab23841cb6f3bd507"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const weddingId = "wedding-alessia-roberto-2026";
+
+        let currentStatus = 'si';
+        let rsvpData = [];
+        let adminClicks = 0;
+
+        // Login automatico
+        signInAnonymously(auth).then(() => {
+            // Sincronizzazione Foto (Real-time)
+            onSnapshot(query(collection(db, 'artifacts', weddingId, 'public', 'data', 'photos'), orderBy('timestamp', 'desc')), snap => {
+                const grid = document.getElementById('photo-grid');
+                grid.innerHTML = snap.empty ? '<p class="col-span-full opacity-30 italic py-10">Ancora nessuna foto caricata...</p>' : '';
+                snap.forEach(doc => {
+                    grid.innerHTML += `<div class="aspect-square rounded-3xl overflow-hidden shadow-xl border-4 border-white animate-fade-in"><img src="${doc.data().url}" class="w-full h-full object-cover"></div>`;
+                });
+            });
+
+            // Sincronizzazione RSVP (Real-time)
+            onSnapshot(collection(db, 'artifacts', weddingId, 'public', 'data', 'rsvp'), snap => {
+                rsvpData = snap.docs.map(d => d.data());
+                document.getElementById('guest-list').innerHTML = rsvpData.map(r => `
+                    <div class="flex justify-between border-b border-white/5 py-2">
+                        <span>${r.name}</span>
+                        <b class="${r.status === 'si' ? 'text-green-400' : 'text-red-400'}">${r.status.toUpperCase()}</b>
+                    </div>
+                `).join('');
+            });
+        });
+
+        // Gestione RSVP
+        document.getElementById('btn-si').onclick = () => { currentStatus = 'si'; updateUI(); };
+        document.getElementById('btn-no').onclick = () => { currentStatus = 'no'; updateUI(); };
+        function updateUI() {
+            document.getElementById('btn-si').className = `flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] ${currentStatus==='si'?'bg-rust text-white shadow-xl':'bg-stone-50 text-stone-300'}`;
+            document.getElementById('btn-no').className = `flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] ${currentStatus==='no'?'bg-stone-800 text-white shadow-xl':'bg-stone-50 text-stone-300'}`;
         }
 
-        if (firebaseConfig) {
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
-            const auth = getAuth(app);
-            const appId = typeof __app_id !== 'undefined' ? __app_id : "wedding-alessia-roberto-2026-v1";
+        document.getElementById('rsvp-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-rsvp');
+            btn.disabled = true;
+            btn.innerText = "...";
+            await addDoc(collection(db, 'artifacts', weddingId, 'public', 'data', 'rsvp'), {
+                name: document.getElementById('guest-name').value,
+                status: currentStatus,
+                timestamp: serverTimestamp()
+            });
+            document.getElementById('rsvp-container').innerHTML = `<p class="text-center font-cursive text-3xl text-rust p-10">Grazie di cuore! ❤️</p>`;
+        };
 
-            let attending = 'si';
-            let rsvpData = [];
-            let clicks = 0;
-            let lastClick = 0;
-
-            const initAuth = async () => {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                    startListeners();
-                } catch (e) {
-                    console.error("Auth Error:", e);
-                }
+        // Caricamento Foto
+        document.getElementById('photo-input').onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            document.getElementById('upload-text').innerText = "INVIO...";
+            reader.onloadend = async () => {
+                await addDoc(collection(db, 'artifacts', weddingId, 'public', 'data', 'photos'), {
+                    url: reader.result,
+                    timestamp: serverTimestamp()
+                });
+                document.getElementById('upload-text').innerText = "FATTO! ✅";
+                setTimeout(() => document.getElementById('upload-text').innerText = "CARICA UNA FOTO", 2000);
             };
+            reader.readAsDataURL(file);
+        };
 
-            const startListeners = () => {
-                const user = auth.currentUser;
-                if (!user) return;
-
-                // Gallery Foto
-                const qPhotos = query(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), orderBy('timestamp', 'desc'));
-                onSnapshot(qPhotos, (snap) => {
-                    const grid = document.getElementById('photo-grid');
-                    grid.innerHTML = '';
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        const div = document.createElement('div');
-                        div.className = "relative aspect-square rounded-3xl overflow-hidden shadow-xl border-4 border-white animate-fade-in";
-                        div.innerHTML = `<img src="${d.url}" class="w-full h-full object-cover">`;
-                        grid.appendChild(div);
-                    });
-                }, (err) => console.error("Foto Error:", err));
-
-                // RSVP per Admin
-                const qRsvp = query(collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), orderBy('timestamp', 'desc'));
-                onSnapshot(qRsvp, (snap) => {
-                    rsvpData = snap.docs.map(d => d.data());
-                    const si = rsvpData.filter(r => r.attending === 'si').length;
-                    document.getElementById('count-si').innerText = si;
-                    
-                    const list = document.getElementById('guest-list');
-                    list.innerHTML = rsvpData.map(r => `
-                        <div class="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5 mb-1">
-                            <span class="font-medium">${r.name}</span>
-                            <span class="px-3 py-1 rounded-full text-[9px] font-bold ${r.attending === 'si' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'} uppercase">${r.attending}</span>
-                        </div>
-                    `).join('');
-                }, (err) => console.error("RSVP Error:", err));
-            };
-
-            initAuth();
-
-            // Toggle RSVP UI
-            document.getElementById('btn-si').onclick = () => { attending = 'si'; updateBtns(); };
-            document.getElementById('btn-no').onclick = () => { attending = 'no'; updateBtns(); };
-            function updateBtns() {
-                document.getElementById('btn-si').className = attending === 'si' ? "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-rust text-white shadow-xl transition-all" : "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-50 text-stone-300 transition-all";
-                document.getElementById('btn-no').className = attending === 'no' ? "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-800 text-white shadow-xl transition-all" : "flex-1 py-5 rounded-[2rem] font-bold uppercase text-[11px] tracking-widest bg-stone-50 text-stone-300 transition-all";
+        // Pannello Segreto (3 click su logo nel footer)
+        document.getElementById('admin-trigger').onclick = () => {
+            adminClicks++;
+            if (adminClicks >= 3) {
+                document.getElementById('admin-panel').classList.toggle('hidden');
+                adminClicks = 0;
             }
+        };
 
-            // Upload Foto
-            document.getElementById('photo-input').onchange = (e) => {
-                const user = auth.currentUser;
-                if(!user) return;
-                const file = e.target.files[0];
-                if(!file) return;
-                const reader = new FileReader();
-                document.getElementById('upload-text').innerText = "INVIO...";
-                reader.onloadend = async () => {
-                    try {
-                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), { 
-                            url: reader.result, 
-                            timestamp: serverTimestamp(),
-                            userId: user.uid
-                        });
-                    } catch(e) { console.error(e); }
-                    document.getElementById('upload-text').innerText = "CARICA FOTO";
-                };
-                reader.readAsDataURL(file);
-            };
+        // Copia IBAN
+        document.getElementById('iban-text').onclick = () => {
+            navigator.clipboard.writeText("IT28W0538710611000004465451");
+            const original = document.getElementById('iban-text').innerText;
+            document.getElementById('iban-text').innerText = "COPIATO!";
+            setTimeout(() => document.getElementById('iban-text').innerText = original, 2000);
+        };
 
-            // Submit RSVP
-            document.getElementById('rsvp-form').onsubmit = async (e) => {
-                e.preventDefault();
-                const user = auth.currentUser;
-                if(!user) return;
-                const name = document.getElementById('guest-name').value;
-                try {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), { 
-                        name, 
-                        attending, 
-                        timestamp: serverTimestamp(),
-                        userId: user.uid
-                    });
-                    document.getElementById('rsvp-container').innerHTML = '<div class="text-center py-12 font-cursive text-4xl text-rust animate-fade-in">Grazie, risposta salvata! ❤️</div>';
-                } catch(e) { alert("Errore invio. Riprova."); }
-            };
-
-            // LOGICA ADMIN (3 click veloci)
-            document.getElementById('admin-trigger').onclick = () => {
-                const now = Date.now();
-                if (now - lastClick > 800) clicks = 0; 
-                clicks++;
-                lastClick = now;
-                
-                if(clicks === 3) {
-                    const panel = document.getElementById('admin-panel');
-                    panel.classList.toggle('hidden');
-                    if(!panel.classList.contains('hidden')) {
-                        panel.scrollIntoView({ behavior: 'smooth' });
-                    }
-                    clicks = 0;
-                }
-            };
-
-            // Export CSV
-            document.getElementById('export-btn').onclick = () => {
-                if(rsvpData.length === 0) return;
-                const headers = ["Nome", "Partecipa", "Data"];
-                const rows = rsvpData.map(r => [
-                    `"${r.name}"`, 
-                    r.attending.toUpperCase(), 
-                    r.timestamp ? new Date(r.timestamp.seconds * 1000).toLocaleString() : '-'
-                ]);
-                const content = "\uFEFF" + [headers, ...rows].map(e => e.join(";")).join("\n");
-                const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = "invitati_matrimonio.csv";
-                link.click();
-            };
-        }
+        // Esportazione CSV
+        document.getElementById('export-btn').onclick = () => {
+            const csv = "\uFEFFNome;Partecipa\n" + rsvpData.map(r => `${r.name};${r.status}`).join("\n");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+            a.download = "lista_invitati.csv";
+            a.click();
+        };
     </script>
 </body>
 </html>
