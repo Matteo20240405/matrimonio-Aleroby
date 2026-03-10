@@ -35,7 +35,7 @@
         </div>
     </header>
 
-    <!-- FOTO GALLERY -->
+    <!-- ALBUM FOTO -->
     <section class="py-16 px-5 max-w-4xl mx-auto text-center">
         <h2 class="text-5xl text-rust mb-4 italic font-cursive">I vostri scatti</h2>
         <p class="text-stone-500 text-[10px] uppercase tracking-[0.2em] mb-12 italic">Caricate qui le foto della giornata</p>
@@ -48,7 +48,7 @@
         </div>
 
         <div id="photo-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <!-- Le foto appariranno qui tramite Firebase -->
+            <!-- Foto da Firebase -->
         </div>
     </section>
 
@@ -58,14 +58,14 @@
         <div class="max-w-xs mx-auto p-8 bg-stone-50 rounded-[2.5rem] border border-stone-200 shadow-sm mb-8 relative">
             <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-rust text-white text-[9px] px-4 py-1.5 rounded-full uppercase font-bold tracking-widest shadow-md">IBAN Viaggio</div>
             <p id="iban-text" class="text-stone-800 font-mono text-[11px] break-all font-bold tracking-tight pt-2 cursor-pointer">IT28W0538710611000004465451</p>
-            <p class="text-[8px] text-stone-400 mt-2 uppercase tracking-tighter">Tocca per copiare l'IBAN</p>
+            <p class="text-[8px] text-stone-400 mt-2 uppercase tracking-tighter">Tocca l'IBAN per copiarlo</p>
         </div>
         <a href="https://paypal.me/AlessiaRabellino" target="_blank" class="inline-flex items-center gap-2 bg-[#0070ba] text-white px-12 py-4 rounded-full font-bold text-[11px] uppercase tracking-widest shadow-xl active:scale-95 transition-transform">
             Regalo con PayPal
         </a>
     </section>
 
-    <!-- RSVP FORM -->
+    <!-- RSVP -->
     <section id="rsvp" class="py-20 px-6 pb-32 bg-[#fff4e6]">
         <div class="max-w-sm mx-auto bg-white p-10 rounded-[3.5rem] shadow-2xl border border-orange-50" id="rsvp-container">
             <form id="rsvp-form" class="space-y-10 text-center">
@@ -99,7 +99,6 @@
         </div>
     </footer>
 
-    <!-- FIREBASE LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
@@ -117,25 +116,25 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const weddingId = "wedding-alessia-roberto-2026";
+        
+        const appId = "wedding-alessia-roberto-2026";
+        const photosCol = collection(db, 'artifacts', appId, 'public', 'data', 'photos');
+        const rsvpCol = collection(db, 'artifacts', appId, 'public', 'data', 'rsvp');
 
         let currentStatus = 'si';
         let rsvpData = [];
         let adminClicks = 0;
 
-        // Login automatico
         signInAnonymously(auth).then(() => {
-            // Sincronizzazione Foto (Real-time)
-            onSnapshot(query(collection(db, 'artifacts', weddingId, 'public', 'data', 'photos'), orderBy('timestamp', 'desc')), snap => {
+            onSnapshot(query(photosCol, orderBy('timestamp', 'desc')), snap => {
                 const grid = document.getElementById('photo-grid');
-                grid.innerHTML = snap.empty ? '<p class="col-span-full opacity-30 italic py-10">Ancora nessuna foto caricata...</p>' : '';
+                grid.innerHTML = snap.empty ? '<p class="col-span-full opacity-30 italic py-10">Ancora nessuna foto...</p>' : '';
                 snap.forEach(doc => {
                     grid.innerHTML += `<div class="aspect-square rounded-3xl overflow-hidden shadow-xl border-4 border-white animate-fade-in"><img src="${doc.data().url}" class="w-full h-full object-cover"></div>`;
                 });
             });
 
-            // Sincronizzazione RSVP (Real-time)
-            onSnapshot(collection(db, 'artifacts', weddingId, 'public', 'data', 'rsvp'), snap => {
+            onSnapshot(rsvpCol, snap => {
                 rsvpData = snap.docs.map(d => d.data());
                 document.getElementById('guest-list').innerHTML = rsvpData.map(r => `
                     <div class="flex justify-between border-b border-white/5 py-2">
@@ -146,7 +145,6 @@
             });
         });
 
-        // Gestione RSVP
         document.getElementById('btn-si').onclick = () => { currentStatus = 'si'; updateUI(); };
         document.getElementById('btn-no').onclick = () => { currentStatus = 'no'; updateUI(); };
         function updateUI() {
@@ -158,23 +156,22 @@
             e.preventDefault();
             const btn = document.getElementById('submit-rsvp');
             btn.disabled = true;
-            btn.innerText = "...";
-            await addDoc(collection(db, 'artifacts', weddingId, 'public', 'data', 'rsvp'), {
+            btn.innerText = "INVIO...";
+            await addDoc(rsvpCol, {
                 name: document.getElementById('guest-name').value,
                 status: currentStatus,
                 timestamp: serverTimestamp()
             });
-            document.getElementById('rsvp-container').innerHTML = `<p class="text-center font-cursive text-3xl text-rust p-10">Grazie di cuore! ❤️</p>`;
+            document.getElementById('rsvp-container').innerHTML = `<p class="text-center font-cursive text-3xl text-rust p-10 font-bold">Grazie di cuore! ❤️</p>`;
         };
 
-        // Caricamento Foto
         document.getElementById('photo-input').onchange = (e) => {
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            document.getElementById('upload-text').innerText = "INVIO...";
+            document.getElementById('upload-text').innerText = "...";
             reader.onloadend = async () => {
-                await addDoc(collection(db, 'artifacts', weddingId, 'public', 'data', 'photos'), {
+                await addDoc(photosCol, {
                     url: reader.result,
                     timestamp: serverTimestamp()
                 });
@@ -184,7 +181,6 @@
             reader.readAsDataURL(file);
         };
 
-        // Pannello Segreto (3 click su logo nel footer)
         document.getElementById('admin-trigger').onclick = () => {
             adminClicks++;
             if (adminClicks >= 3) {
@@ -193,7 +189,6 @@
             }
         };
 
-        // Copia IBAN
         document.getElementById('iban-text').onclick = () => {
             navigator.clipboard.writeText("IT28W0538710611000004465451");
             const original = document.getElementById('iban-text').innerText;
@@ -201,7 +196,6 @@
             setTimeout(() => document.getElementById('iban-text').innerText = original, 2000);
         };
 
-        // Esportazione CSV
         document.getElementById('export-btn').onclick = () => {
             const csv = "\uFEFFNome;Partecipa\n" + rsvpData.map(r => `${r.name};${r.status}`).join("\n");
             const a = document.createElement("a");
