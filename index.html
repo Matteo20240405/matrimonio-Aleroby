@@ -37,7 +37,7 @@
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc, query } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
-        // Configurazione fornita dall'utente
+        // Configurazione Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBkRq8hMwlsSjhc-4Z8mMGDsbWvx295F54",
             authDomain: "matrimonio-ale-e-roby-5248c.firebaseapp.com",
@@ -47,7 +47,7 @@
             appId: "1:797207643656:web:177acffeab23841cb6f3bd"
         };
 
-        // Esponiamo le funzioni e la config globalmente
+        // Esposizione globale per React
         window.FB = { 
             initializeApp, getFirestore, collection, addDoc, onSnapshot, 
             serverTimestamp, deleteDoc, doc, getAuth, signInAnonymously, 
@@ -63,7 +63,6 @@
         const URL_FOTO_CHIESA = "https://i.ibb.co/XxvzKNhg/Vendone-panorama.jpg"; 
         const URL_FOTO_LOCATION = "https://i.ibb.co/8DZVrcC4/borgofasceo.jpg";
         
-        // Data del matrimonio impostata correttamente
         const DATA_MATRIMONIO = new Date("2026-07-11T16:30:00");
 
         const compressImage = (base64Str, maxWidth = 1024, maxHeight = 1024) => {
@@ -109,10 +108,23 @@
                 const auth = window.FB.getAuth(app);
                 
                 const initAuth = async () => {
+                    // FIX: Gestione robusta dell'autenticazione per evitare errori di Custom Token Mismatch
                     try {
-                        await window.FB.signInAnonymously(auth);
-                    } catch (err) { console.error("Errore Auth:", err); }
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            try {
+                                await window.FB.signInWithCustomToken(auth, __initial_auth_token);
+                            } catch (tokenErr) {
+                                // Se il token fallisce, ripieghiamo sull'anonimo
+                                await window.FB.signInAnonymously(auth);
+                            }
+                        } else {
+                            await window.FB.signInAnonymously(auth);
+                        }
+                    } catch (err) { 
+                        console.error("Errore critico Auth:", err); 
+                    }
                 };
+                
                 initAuth();
                 const unsubAuth = window.FB.onAuthStateChanged(auth, setUser);
 
@@ -133,20 +145,28 @@
             }, []);
 
             useEffect(() => {
+                // Carica i dati solo dopo che l'utente è autenticato
                 if (!user || !window.FB) return;
                 const db = window.FB.getFirestore();
-                const appId = 'wedding-alessia-roberto-2026';
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
                 
-                const unsubP = window.FB.onSnapshot(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'), 
+                const unsubP = window.FB.onSnapshot(
+                    window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'), 
                     snap => {
                         const data = snap.docs.map(d => ({id: d.id, ...d.data()}));
                         setPhotos(data.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
                     },
                     err => console.error("Errore recupero foto:", err)
                 );
-                const unsubR = window.FB.onSnapshot(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), 
-                    snap => setRsvps(snap.docs.map(d => ({id: d.id, ...d.data()})))
+
+                const unsubR = window.FB.onSnapshot(
+                    window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), 
+                    snap => {
+                        setRsvps(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                    },
+                    err => console.error("Errore recupero RSVP:", err)
                 );
+
                 return () => { unsubP(); unsubR(); };
             }, [user]);
 
@@ -169,7 +189,7 @@
                     try {
                         const compressedBase64 = await compressImage(reader.result);
                         const db = window.FB.getFirestore();
-                        const appId = 'wedding-alessia-roberto-2026';
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
                         await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'), {
                             url: compressedBase64, 
                             userId: user.uid, 
@@ -187,7 +207,7 @@
                 e.stopPropagation();
                 try {
                     const db = window.FB.getFirestore();
-                    const appId = 'wedding-alessia-roberto-2026';
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
                     const photoRef = window.FB.doc(db, 'artifacts', appId, 'public', 'data', 'photos', photoId);
                     await window.FB.deleteDoc(photoRef);
                 } catch (err) {
@@ -263,8 +283,9 @@
                             {!submitted ? (
                                 <form onSubmit={async (e) => {
                                     e.preventDefault();
+                                    if (!user) return;
                                     const db = window.FB.getFirestore();
-                                    const appId = 'wedding-alessia-roberto-2026';
+                                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
                                     await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), { ...formData, timestamp: window.FB.serverTimestamp() });
                                     setSubmitted(true);
                                 }} className="space-y-8">
@@ -314,13 +335,17 @@
                         <div className="max-w-md mx-auto mt-20 bg-stone-900 text-white p-8 rounded-[2.5rem] shadow-2xl animate-fade-in">
                             <h3 className="text-xs font-bold border-b border-white/10 pb-4 mb-6 flex justify-between tracking-widest uppercase">
                                 <span>Lista Invitati</span>
-                                <span className="text-orange-300">{rsvps.filter(r=>r.attending==='si').length} PRESENTI</span>
+                                <span className="text-orange-300">
+                                    {rsvps.filter(r => r.attending === 'si').length} PRESENTI
+                                </span>
                             </h3>
                             <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-2">
                                 {rsvps.map(r => (
                                     <div key={r.id} className="flex justify-between items-center text-[11px] py-1 border-b border-white/5">
-                                        <span className="font-bold uppercase tracking-tight">{r.name}</span>
-                                        <span className={r.attending === 'si' ? 'text-green-400' : 'text-red-400'}>{r.attending.toUpperCase()}</span>
+                                        <span className="font-bold uppercase tracking-tight">{r.name || 'Anonimo'}</span>
+                                        <span className={(r.attending || 'si') === 'si' ? 'text-green-400' : 'text-red-400'}>
+                                            {(r.attending || 'n/a').toUpperCase()}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
