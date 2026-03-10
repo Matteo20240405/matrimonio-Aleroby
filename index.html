@@ -1,357 +1,295 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc, query } from 'firebase/firestore';
-
-// --- CONFIGURAZIONE FIREBASE ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-const URL_FOTO_HERO = "https://raw.githubusercontent.com/Matteo20240405/matrimonio-Aleroby/main/IMG-20260103-WA0013.jpg";
-const URL_FOTO_CHIESA = "https://i.ibb.co/yFb8ZGw1/chiesa.jpg"; 
-const URL_FOTO_LOCATION = "https://i.ibb.co/8DZVrcC4/borgofasceo.jpg";
-
-const IBAN_CODE = "IT28W0538710611000004465451"; 
-const PAYPAL_LINK = "https://paypal.me/AlessiaRabellino";
-const DATA_MATRIMONIO = new Date("July 11, 2026 16:30:00");
-
-// Nuovo limite dimensione file: 8MB
-const MAX_FILE_SIZE = 8 * 1024 * 1024; 
-
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [photos, setPhotos] = useState([]);
-  const [rsvps, setRsvps] = useState([]);
-  const [formData, setFormData] = useState({ name: '', attending: 'si' });
-  const [submitted, setSubmitted] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  
-  const clickCount = useRef(0);
-  const clickTimer = useRef(null);
-
-  // Inizializzazione Autenticazione
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (error) {
-        console.error("Errore di autenticazione:", error);
-      }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
-
-  // Countdown Logic
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const difference = DATA_MATRIMONIO - now;
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-          minutes: Math.floor((difference / 1000 / 60) % 60),
-          seconds: Math.floor((difference / 1000) % 60)
-        });
-      }
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Fetch Dati da Firestore
-  useEffect(() => {
-    if (!user) return;
-
-    const photosCollection = collection(db, 'artifacts', appId, 'public', 'data', 'photos');
-    const rsvpCollection = collection(db, 'artifacts', appId, 'public', 'data', 'rsvp');
-
-    const unsubPhotos = onSnapshot(photosCollection, 
-      (snapshot) => {
-        const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // Ordina per timestamp più recente
-        setPhotos(fetched.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
-      },
-      (error) => console.error("Errore snapshot foto:", error)
-    );
-
-    const unsubRsvp = onSnapshot(rsvpCollection, 
-      (snapshot) => {
-        const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setRsvps(fetched);
-      },
-      (error) => console.error("Errore snapshot RSVP:", error)
-    );
-
-    return () => { unsubPhotos(); unsubRsvp(); };
-  }, [user]);
-
-  // Funzione per attivare la modalità Admin (3 click sul nome in alto)
-  const handleAdminToggle = () => {
-    clickCount.current++;
-    if (clickCount.current === 1) {
-      clickTimer.current = setTimeout(() => { clickCount.current = 0; }, 2000);
-    }
-    if (clickCount.current >= 3) {
-      setIsAdmin(!isAdmin);
-      clickCount.current = 0;
-      clearTimeout(clickTimer.current);
-    }
-  };
-
-  const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alessia & Roberto - 11 Luglio 2026</title>
     
-    // Controllo dimensione: 8MB
-    if (file.size > MAX_FILE_SIZE) { 
-      alert("La foto è troppo pesante. Il limite massimo è di 8MB."); 
-      return; 
-    }
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    setUploading(true);
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      try {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), { 
-          url: reader.result, 
-          userId: user.uid,
-          timestamp: serverTimestamp()
-        });
-      } catch (err) { 
-        console.error(err);
-        alert("Errore durante il caricamento."); 
-      }
-      finally { setUploading(false); }
-    };
-    reader.readAsDataURL(file);
-  };
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 
-  const handleDeletePhoto = async (photoId, e) => {
-    e.stopPropagation(); // Evita di aprire il lightbox
-    if (window.confirm("Sei sicuro di voler eliminare questa foto?")) {
-      try {
-        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'photos', photoId));
-      } catch (err) {
-        alert("Errore durante l'eliminazione.");
-      }
-    }
-  };
+    <!-- React & Babel for JSX in browser -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  return (
-    <div className="bg-[#fff4e6] text-stone-900 font-serif min-h-screen pb-10">
-      
-      {/* NAVBAR */}
-      <nav className="fixed top-0 w-full z-50 py-5 px-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent">
-        <span onClick={handleAdminToggle} className="text-3xl font-bold italic text-white cursor-pointer select-none" style={{ fontFamily: 'Dancing Script, cursive' }}>
-          A & R {isAdmin && <span className="text-xs align-middle ml-2 opacity-50">(Admin)</span>}
-        </span>
-        <button onClick={() => document.getElementById('rsvp').scrollIntoView({behavior:'smooth'})} className="bg-white/20 backdrop-blur-md px-6 py-2 rounded-full border border-white/30 text-white text-[11px] font-bold uppercase tracking-widest">
-          RSVP
-        </button>
-      </nav>
-
-      {/* HERO SECTION */}
-      <header className="relative w-full h-screen flex flex-col justify-center items-center overflow-hidden">
-        <img src={URL_FOTO_HERO} className="absolute inset-0 w-full h-full object-cover" alt="Sposi" />
-        <div className="absolute inset-0 bg-black/30 z-10" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#fff4e6] via-transparent to-transparent z-10" />
-        
-        <div className="relative z-20 text-center px-6 mt-20">
-          <h1 className="text-7xl md:text-9xl mb-4 italic text-white drop-shadow-2xl" style={{ fontFamily: 'Dancing Script, cursive' }}>Alessia & Roberto</h1>
-          <p className="text-white tracking-[0.4em] uppercase text-xs md:text-sm font-bold opacity-90 mb-12">11 Luglio 2026 • Vendone</p>
-          
-          {/* COUNTDOWN */}
-          <div className="flex gap-4 md:gap-8 justify-center text-white">
-            {[
-              { label: 'Giorni', val: timeLeft.days },
-              { label: 'Ore', val: timeLeft.hours },
-              { label: 'Min', val: timeLeft.minutes }
-            ].map((item, idx) => (
-              <div key={idx} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl w-20 md:w-24 border border-white/20">
-                <span className="block text-2xl md:text-4xl font-bold">{item.val}</span>
-                <span className="text-[10px] uppercase tracking-widest opacity-70">{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </header>
-
-      {/* DETTAGLI EVENTO */}
-      <section className="py-24 px-6 max-w-6xl mx-auto grid md:grid-cols-2 gap-12">
-        <div className="bg-white overflow-hidden rounded-[3rem] shadow-xl border border-orange-50 transform hover:-translate-y-2 transition-transform">
-          <div className="h-64 overflow-hidden relative">
-              <img src={URL_FOTO_CHIESA} className="w-full h-full object-cover" alt="Chiesa" />
-              <div className="absolute top-4 right-4 bg-white/90 px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-[#7a3e2e]">Ore 16:30</div>
-          </div>
-          <div className="p-10 text-center">
-              <div className="text-4xl mb-4">⛪</div>
-              <h3 className="text-3xl text-[#7a3e2e] mb-4 italic" style={{ fontFamily: 'Dancing Script, cursive' }}>La Cerimonia</h3>
-              <p className="text-stone-700 font-bold mb-1 uppercase tracking-tight text-sm">Parrocchia di San Giacomo</p>
-              <p className="text-stone-500 italic mb-6">Vendone (SV)</p>
-              <a href="https://maps.google.com/?q=Vendone" target="_blank" className="inline-block text-[10px] font-bold uppercase tracking-widest text-[#7a3e2e] border border-[#7a3e2e] px-8 py-3 rounded-full hover:bg-[#7a3e2e] hover:text-white transition-colors">Apri Mappa</a>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden rounded-[3rem] shadow-xl border border-orange-50 transform hover:-translate-y-2 transition-transform">
-          <div className="h-64 overflow-hidden relative">
-              <img src={URL_FOTO_LOCATION} className="w-full h-full object-cover" alt="Location" />
-              <div className="absolute top-4 right-4 bg-white/90 px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-[#7a3e2e]">A seguire</div>
-          </div>
-          <div className="p-10 text-center">
-              <div className="text-4xl mb-4">🥂</div>
-              <h3 className="text-3xl text-[#7a3e2e] mb-4 italic" style={{ fontFamily: 'Dancing Script, cursive' }}>Il Ricevimento</h3>
-              <p className="text-stone-700 font-bold mb-1 uppercase tracking-tight text-sm">Relais Borgofasceo</p>
-              <p className="text-stone-500 italic mb-6">Frazione Ortovero (SV)</p>
-              <a href="https://maps.google.com/?q=Ortovero" target="_blank" className="inline-block text-[10px] font-bold uppercase tracking-widest text-[#7a3e2e] border border-[#7a3e2e] px-8 py-3 rounded-full hover:bg-[#7a3e2e] hover:text-white transition-colors">Apri Mappa</a>
-          </div>
-        </div>
-      </section>
-
-      {/* GALLERY */}
-      <section className="py-12 px-5 max-w-5xl mx-auto text-center">
-        <h2 className="text-5xl text-[#7a3e2e] mb-2 italic" style={{ fontFamily: 'Dancing Script, cursive' }}>Momenti condivisi</h2>
-        <p className="text-stone-400 text-[9px] uppercase tracking-widest mb-8 font-bold tracking-[0.2em]">Le vostre foto del nostro giorno</p>
-        
-        <div className="mb-12">
-          <label className="cursor-pointer bg-[#7a3e2e] text-white px-10 py-5 rounded-full font-bold uppercase text-[11px] tracking-widest shadow-xl inline-block active:scale-95 hover:bg-[#8b4a3a] transition-all">
-            {uploading ? 'CARICAMENTO IN CORSO...' : '📸 CARICA UNA FOTO'}
-            <input type="file" accept="image/*" onChange={handleUpload} className="hidden" disabled={uploading} />
-          </label>
-          <p className="text-[10px] text-stone-400 mt-3 italic tracking-wide">Dimensione massima: 8MB</p>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {photos.map((photo) => (
-            <div key={photo.id} className="relative aspect-square rounded-2xl overflow-hidden shadow-md border-4 border-white group transition-all hover:shadow-2xl">
-              <img 
-                onClick={() => setSelectedPhoto(photo.url)} 
-                src={photo.url} 
-                className="w-full h-full object-cover cursor-zoom-in transform group-hover:scale-105 transition-transform duration-500" 
-                alt="Foto Ospiti" 
-              />
-              
-              {/* Pulsante Cancella (Visibile se Admin o se l'utente è l'autore) */}
-              {(isAdmin || photo.userId === user?.uid) && (
-                <button 
-                  onClick={(e) => handleDeletePhoto(photo.id, e)} 
-                  className="absolute top-2 right-2 bg-white/90 text-red-600 w-8 h-8 rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 hover:text-white transition-all transform scale-90 group-hover:scale-100"
-                  title="Elimina foto"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          ))}
-          {photos.length === 0 && (
-            <div className="col-span-full py-20 bg-white/30 rounded-3xl border border-dashed border-stone-300">
-              <p className="opacity-40 italic text-stone-500 text-sm tracking-widest">SIATE I PRIMI A CONDIVIDERE UN MOMENTO!</p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* LISTA NOZZE */}
-      <section className="py-20 px-6 text-center">
-        <div className="max-w-xl mx-auto bg-stone-100/60 p-12 rounded-[4rem] border border-white shadow-inner">
-          <h2 className="text-4xl text-[#7a3e2e] mb-6 italic" style={{ fontFamily: 'Dancing Script, cursive' }}>Un pensiero per noi</h2>
-          <p className="text-stone-500 text-xs mb-10 italic leading-relaxed">Il regalo più grande è la vostra presenza, ma se desiderate contribuire al nostro viaggio:</p>
-          <div className="max-w-xs mx-auto p-8 bg-white rounded-3xl border border-stone-200 mb-8 shadow-sm group">
-              <p className="text-[9px] text-stone-400 uppercase tracking-widest mb-4 font-bold">IBAN VIAGGIO DI NOZZE</p>
-              <p className="text-stone-800 font-mono text-[11px] break-all font-bold select-all leading-relaxed tracking-wider group-hover:text-[#7a3e2e] transition-colors">{IBAN_CODE}</p>
-          </div>
-          <a href={PAYPAL_LINK} target="_blank" rel="noopener noreferrer" className="inline-block bg-[#0070ba] text-white px-12 py-4 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl hover:scale-105 transition-transform">
-            Invia con PayPal
-          </a>
-        </div>
-      </section>
-
-      {/* RSVP */}
-      <section id="rsvp" className="py-20 px-6">
-        <div className="max-w-sm mx-auto bg-white p-12 rounded-[3.5rem] shadow-2xl text-center border border-orange-50 relative">
-          {!submitted ? (
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), { ...formData, timestamp: serverTimestamp() });
-                setSubmitted(true);
-              } catch (err) { alert("Errore di invio."); }
-            }} className="space-y-10">
-              <h2 className="text-5xl text-[#7a3e2e] italic" style={{ fontFamily: 'Dancing Script, cursive' }}>Ci sarete?</h2>
-              <input type="text" required placeholder="Inserisci il tuo nome" 
-                     onChange={(e) => setFormData({...formData, name: e.target.value})} 
-                     className="w-full border-b-2 border-stone-100 py-3 text-center focus:outline-none focus:border-[#7a3e2e] bg-transparent italic text-xl" />
-              <div className="flex gap-4">
-                  <button type="button" onClick={() => setFormData({...formData, attending: 'si'})} 
-                          className={`flex-1 py-5 rounded-2xl font-bold uppercase text-[10px] tracking-widest transition-all ${formData.attending === 'si' ? 'bg-[#7a3e2e] text-white shadow-xl scale-105' : 'bg-stone-50 text-stone-300'}`}>Sì</button>
-                  <button type="button" onClick={() => setFormData({...formData, attending: 'no'})} 
-                          className={`flex-1 py-5 rounded-2xl font-bold uppercase text-[10px] tracking-widest transition-all ${formData.attending === 'no' ? 'bg-stone-800 text-white shadow-xl scale-105' : 'bg-stone-50 text-stone-300'}`}>No</button>
-              </div>
-              <button type="submit" className="w-full bg-[#7a3e2e] text-white py-6 rounded-full font-bold uppercase tracking-widest text-[12px] shadow-2xl active:scale-95 hover:bg-[#8b4a3a] transition-all">Invia Risposta</button>
-            </form>
-          ) : (
-            <div className="py-10 text-[#7a3e2e] animate-bounce">
-              <p className="text-5xl italic mb-4" style={{ fontFamily: 'Dancing Script, cursive' }}>Grazie!</p>
-              <p className="text-[10px] uppercase tracking-widest opacity-60 font-bold">Risposta salvata con successo ❤️</p>
-            </div>
-          )}
-        </div>
-
-        {/* ADMIN PANEL */}
-        {isAdmin && (
-          <div className="max-w-md mx-auto mt-16 bg-stone-900 text-white p-10 rounded-[3rem] shadow-2xl animate-fade-in border border-white/10">
-            <h3 className="text-xs font-bold mb-8 uppercase tracking-[0.2em] text-orange-200 border-b border-white/10 pb-4 flex justify-between items-center">
-              <span>LISTA INVITATI</span>
-              <span className="bg-white/10 px-3 py-1 rounded-full text-white">PRESENTI: {rsvps.filter(r => r.attending === 'si').length}</span>
-            </h3>
-            <div className="space-y-4 max-h-80 overflow-y-auto pr-3 custom-scrollbar text-[11px]">
-              {rsvps.map((r, i) => (
-                <div key={i} className="flex justify-between items-center border-b border-white/5 pb-3">
-                  <span className="uppercase font-bold tracking-wider truncate pr-4">{r.name || 'Invitato'}</span>
-                  <div className="flex items-center gap-3">
-                    <span className={(r.attending || 'si') === 'si' ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>{(r.attending || 'si').toUpperCase()}</span>
-                    <button onClick={async () => { if(window.confirm("Rimuovere questo RSVP?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rsvp', r.id)) }} className="text-white/20 hover:text-red-500 transition-colors">✕</button>
-                  </div>
-                </div>
-              ))}
-              {rsvps.length === 0 && <p className="opacity-30 italic text-center py-6 tracking-widest">Nessuna risposta ricevuta</p>}
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* LIGHTBOX */}
-      {selectedPhoto && (
-        <div className="fixed inset-0 z-[1000] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in" onClick={() => setSelectedPhoto(null)}>
-          <img src={selectedPhoto} className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" alt="Dettaglio Foto" />
-          <button className="absolute top-8 right-8 text-white text-4xl hover:rotate-90 transition-transform">✕</button>
-        </div>
-      )}
-
-      <footer className="py-20 text-center opacity-30 select-none">
-        <p className="text-[10px] uppercase tracking-[0.6em] text-[#7a3e2e] font-bold italic">A & R • 11.07.2026</p>
-      </footer>
-
-      <style>{`
+    <style>
+        body { font-family: 'Lora', serif; }
+        .font-cursive { font-family: 'Dancing Script', cursive; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-      `}</style>
+    </style>
+</head>
+<body class="bg-[#fff4e6]">
+    <div id="root"></div>
 
-    </div>
-  );
-}
+    <!-- Firebase SDK (Versione compatibile con script tag) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc, query } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+        // Rendiamo le funzioni disponibili a Babel/React
+        window.FB = { initializeApp, getFirestore, collection, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, query };
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- COSTANTI ---
+        const URL_FOTO_HERO = "https://raw.githubusercontent.com/Matteo20240405/matrimonio-Aleroby/main/IMG-20260103-WA0013.jpg";
+        const URL_FOTO_CHIESA = "https://i.ibb.co/yFb8ZGw1/chiesa.jpg"; 
+        const URL_FOTO_LOCATION = "https://i.ibb.co/8DZVrcC4/borgofasceo.jpg";
+        const IBAN_CODE = "IT28W0538710611000004465451"; 
+        const PAYPAL_LINK = "https://paypal.me/AlessiaRabellino";
+        const DATA_MATRIMONIO = new Date("July 11, 2026 16:30:00");
+        const MAX_FILE_SIZE = 8 * 1024 * 1024; 
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [photos, setPhotos] = useState([]);
+            const [rsvps, setRsvps] = useState([]);
+            const [formData, setFormData] = useState({ name: '', attending: 'si' });
+            const [submitted, setSubmitted] = useState(false);
+            const [uploading, setUploading] = useState(false);
+            const [selectedPhoto, setSelectedPhoto] = useState(null);
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+            
+            const clickCount = useRef(0);
+            const clickTimer = useRef(null);
+
+            useEffect(() => {
+                // Gestione configurazione Firebase sicura
+                let config;
+                try {
+                    config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+                } catch (e) {
+                    console.error("Errore parsing config:", e);
+                    return;
+                }
+
+                if (!config || !window.FB) return;
+
+                const app = window.FB.initializeApp(config);
+                const auth = window.FB.getAuth(app);
+                const db = window.FB.getFirestore(app);
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
+
+                // Autenticazione (Regola 3: Auth prima di query)
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await window.FB.signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await window.FB.signInAnonymously(auth);
+                        }
+                    } catch (err) {
+                        console.error("Auth error:", err);
+                    }
+                };
+                
+                initAuth();
+                const unsubAuth = window.FB.onAuthStateChanged(auth, setUser);
+
+                // Countdown
+                const timer = setInterval(() => {
+                    const now = new Date();
+                    const diff = DATA_MATRIMONIO - now;
+                    if (diff > 0) {
+                        setTimeLeft({
+                            days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+                            hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+                            minutes: Math.floor((diff / 1000 / 60) % 60),
+                            seconds: Math.floor((diff / 1000) % 60)
+                        });
+                    }
+                }, 1000);
+
+                return () => { 
+                    clearInterval(timer); 
+                    unsubAuth();
+                };
+            }, []);
+
+            // Listener dati (Separato per dipendenza user)
+            useEffect(() => {
+                if (!user || !window.FB) return;
+                
+                const db = window.FB.getFirestore();
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
+
+                const photosCol = window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos');
+                const rsvpCol = window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp');
+
+                const unsubP = window.FB.onSnapshot(photosCol, 
+                    snap => {
+                        const data = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                        setPhotos(data.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
+                    },
+                    err => console.error("Snapshot photos error:", err)
+                );
+
+                const unsubR = window.FB.onSnapshot(rsvpCol, 
+                    snap => {
+                        setRsvps(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                    },
+                    err => console.error("Snapshot RSVP error:", err)
+                );
+
+                return () => { unsubP(); unsubR(); };
+            }, [user]);
+
+            const handleAdminToggle = () => {
+                clickCount.current++;
+                if (clickCount.current === 1) clickTimer.current = setTimeout(() => clickCount.current = 0, 2000);
+                if (clickCount.current >= 3) {
+                    setIsAdmin(!isAdmin);
+                    clickCount.current = 0;
+                    clearTimeout(clickTimer.current);
+                }
+            };
+
+            const handleUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (file.size > MAX_FILE_SIZE) return alert("File troppo grande (max 8MB)");
+                
+                setUploading(true);
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    try {
+                        const db = window.FB.getFirestore();
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
+                        await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'), {
+                            url: reader.result,
+                            userId: user.uid,
+                            timestamp: window.FB.serverTimestamp()
+                        });
+                    } catch (err) {
+                        console.error("Upload error:", err);
+                    } finally {
+                        setUploading(false);
+                    }
+                };
+                reader.readAsDataURL(file);
+            };
+
+            return (
+                <div className="text-stone-900 min-h-screen pb-10">
+                    <nav className="fixed top-0 w-full z-50 py-5 px-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent">
+                        <span onClick={handleAdminToggle} className="text-3xl font-bold italic text-white cursor-pointer font-cursive select-none">A & R</span>
+                        <button onClick={() => document.getElementById('rsvp').scrollIntoView({behavior:'smooth'})} className="bg-white/20 backdrop-blur-md px-6 py-2 rounded-full border border-white/30 text-white text-[11px] font-bold uppercase tracking-widest">RSVP</button>
+                    </nav>
+
+                    <header className="relative w-full h-screen flex flex-col justify-center items-center overflow-hidden">
+                        <img src={URL_FOTO_HERO} className="absolute inset-0 w-full h-full object-cover" alt="Sposi" />
+                        <div className="absolute inset-0 bg-black/30 z-10" />
+                        <div className="relative z-20 text-center px-6">
+                            <h1 className="text-7xl md:text-9xl mb-4 italic text-white font-cursive drop-shadow-lg">Alessia & Roberto</h1>
+                            <p className="text-white tracking-[0.4em] uppercase text-xs font-bold opacity-90 mb-12">11 Luglio 2026 • Vendone</p>
+                            <div className="flex gap-4 justify-center text-white">
+                                {[{label:'Giorni', v:timeLeft.days}, {label:'Ore', v:timeLeft.hours}, {label:'Min', v:timeLeft.minutes}].map((t,i) => (
+                                    <div key={i} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl w-20 border border-white/20">
+                                        <span className="block text-2xl font-bold">{t.v}</span>
+                                        <span className="text-[10px] uppercase opacity-70">{t.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </header>
+
+                    <section id="rsvp" className="py-20 px-6 max-w-sm mx-auto">
+                        <div className="bg-white p-10 rounded-[3rem] shadow-2xl text-center border border-orange-50">
+                            {!submitted ? (
+                                <form onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    const db = window.FB.getFirestore();
+                                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
+                                    await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), { ...formData, timestamp: window.FB.serverTimestamp() });
+                                    setSubmitted(true);
+                                }} className="space-y-8">
+                                    <h2 className="text-4xl text-[#7a3e2e] font-cursive">Ci sarete?</h2>
+                                    <input type="text" required placeholder="Il tuo nome" onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border-b py-2 text-center focus:outline-none focus:border-[#7a3e2e] bg-transparent text-lg" />
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={() => setFormData({...formData, attending:'si'})} className={`flex-1 py-4 rounded-xl font-bold text-[10px] tracking-widest transition-all ${formData.attending==='si'?'bg-[#7a3e2e] text-white shadow-md':'bg-stone-100 text-stone-400'}`}>SÌ</button>
+                                        <button type="button" onClick={() => setFormData({...formData, attending:'no'})} className={`flex-1 py-4 rounded-xl font-bold text-[10px] tracking-widest transition-all ${formData.attending==='no'?'bg-stone-800 text-white shadow-md':'bg-stone-100 text-stone-400'}`}>NO</button>
+                                    </div>
+                                    <button type="submit" className="w-full bg-[#7a3e2e] text-white py-4 rounded-full font-bold uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-transform">Invia Risposta</button>
+                                </form>
+                            ) : (
+                                <div className="py-10 animate-fade-in">
+                                    <p className="text-4xl text-[#7a3e2e] font-cursive mb-2">Grazie! ❤️</p>
+                                    <p className="text-[10px] uppercase tracking-widest opacity-50">Risposta inviata</p>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
+                    <section className="py-12 px-6 text-center max-w-5xl mx-auto">
+                        <h2 className="text-4xl text-[#7a3e2e] mb-2 font-cursive">Momenti Condivisi</h2>
+                        <p className="text-[10px] uppercase tracking-widest text-stone-400 mb-8">Aiutaci a ricordare questo giorno</p>
+                        
+                        <label className="cursor-pointer bg-[#7a3e2e] text-white px-8 py-4 rounded-full font-bold text-[11px] shadow-lg inline-block active:scale-95 transition-transform mb-12">
+                            {uploading ? 'CARICAMENTO...' : '📸 CARICA FOTO'}
+                            <input type="file" accept="image/*" onChange={handleUpload} className="hidden" disabled={uploading} />
+                        </label>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {photos.map(p => (
+                                <div key={p.id} className="aspect-square rounded-2xl overflow-hidden shadow-md border-4 border-white relative group">
+                                    <img src={p.url} className="w-full h-full object-cover cursor-zoom-in" onClick={() => setSelectedPhoto(p.url)} />
+                                    {(isAdmin || p.userId === user?.uid) && (
+                                        <button onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if(!confirm("Eliminare questa foto?")) return;
+                                            const db = window.FB.getFirestore();
+                                            const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
+                                            await window.FB.deleteDoc(window.FB.doc(db, 'artifacts', appId, 'public', 'data', 'photos', p.id));
+                                        }} className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-full text-red-500 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {isAdmin && (
+                        <div className="max-w-md mx-auto mt-20 bg-stone-900 text-white p-8 rounded-[2.5rem] shadow-2xl animate-fade-in">
+                            <h3 className="text-xs font-bold border-b border-white/10 pb-4 mb-6 flex justify-between tracking-widest uppercase">
+                                <span>Lista RSVP</span>
+                                <span className="text-orange-300">{rsvps.filter(r=>r.attending==='si').length} PRESENTI</span>
+                            </h3>
+                            <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                                {rsvps.map(r => (
+                                    <div key={r.id} className="flex justify-between items-center text-[11px] py-1 border-b border-white/5">
+                                        <span className="font-bold uppercase tracking-tight">{r.name}</span>
+                                        <span className={r.attending === 'si' ? 'text-green-400' : 'text-red-400'}>{r.attending.toUpperCase()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {selectedPhoto && (
+                        <div className="fixed inset-0 z-[1000] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in" onClick={() => setSelectedPhoto(null)}>
+                            <img src={selectedPhoto} className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
