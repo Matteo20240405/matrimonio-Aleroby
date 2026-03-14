@@ -19,25 +19,26 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { font-family: 'Lora', serif; }
+        body { font-family: 'Lora', serif; background-color: #fffaf5; }
         .font-cursive { font-family: 'Dancing Script', cursive; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(122, 62, 46, 0.3); border-radius: 10px; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         .scroll-mt-20 { scroll-margin-top: 5rem; }
+        .location-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .location-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
     </style>
 </head>
-<body class="bg-[#fff4e6]">
+<body>
     <div id="root"></div>
 
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc, query } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
-        // Configurazione Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBkRq8hMwlsSjhc-4Z8mMGDsbWvx295F54",
             authDomain: "matrimonio-ale-e-roby-5248c.firebaseapp.com",
@@ -47,11 +48,10 @@
             appId: "1:797207643656:web:177acffeab23841cb6f3bd"
         };
 
-        // Esposizione globale per React
         window.FB = { 
             initializeApp, getFirestore, collection, addDoc, onSnapshot, 
             serverTimestamp, deleteDoc, doc, getAuth, signInAnonymously, 
-            signInWithCustomToken, onAuthStateChanged, query, 
+            signInWithCustomToken, onAuthStateChanged, query, orderBy,
             config: firebaseConfig 
         };
     </script>
@@ -59,33 +59,12 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
+        // Configurazione Immagini e Dati
         const URL_FOTO_HERO = "https://raw.githubusercontent.com/Matteo20240405/matrimonio-Aleroby/main/IMG-20260103-WA0013.jpg";
-        const URL_FOTO_CHIESA = "https://i.ibb.co/XxvzKNhg/Vendone-panorama.jpg"; 
-        const URL_FOTO_LOCATION = "https://i.ibb.co/8DZVrcC4/borgofasceo.jpg";
-        
+        const URL_CHIESA = "https://upload.wikimedia.org/wikipedia/commons/9/92/Vendone-panorama.jpg";
+        const URL_RICEVIMENTO = "https://borgofasceo.it/wp-content/uploads/2025/05/relais-drone-laterale.jpg";
         const DATA_MATRIMONIO = new Date("2026-07-11T16:00:00");
-
-        const compressImage = (base64Str, maxWidth = 1024, maxHeight = 1024) => {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.src = base64Str;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    if (width > height) {
-                        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
-                    } else {
-                        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
-                    }
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.7));
-                };
-            });
-        };
+        const IBAN = "IT28W0538710611000004465451";
 
         const App = () => {
             const [user, setUser] = useState(null);
@@ -93,38 +72,27 @@
             const [rsvps, setRsvps] = useState([]);
             const [formData, setFormData] = useState({ name: '', attending: 'si' });
             const [submitted, setSubmitted] = useState(false);
-            const [uploading, setUploading] = useState(false);
-            const [selectedPhoto, setSelectedPhoto] = useState(null);
             const [isAdmin, setIsAdmin] = useState(false);
+            const [uploading, setUploading] = useState(false);
             const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+            const [copySuccess, setCopySuccess] = useState(false);
             
             const clickCount = useRef(0);
             const clickTimer = useRef(null);
 
             useEffect(() => {
                 if (!window.FB || !window.FB.config) return;
-
                 const app = window.FB.initializeApp(window.FB.config);
                 const auth = window.FB.getAuth(app);
                 
                 const initAuth = async () => {
-                    // FIX: Gestione robusta dell'autenticazione per evitare errori di Custom Token Mismatch
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            try {
-                                await window.FB.signInWithCustomToken(auth, __initial_auth_token);
-                            } catch (tokenErr) {
-                                // Se il token fallisce, ripieghiamo sull'anonimo
-                                await window.FB.signInAnonymously(auth);
-                            }
-                        } else {
-                            await window.FB.signInAnonymously(auth);
-                        }
-                    } catch (err) { 
-                        console.error("Errore critico Auth:", err); 
-                    }
+                            try { await window.FB.signInWithCustomToken(auth, __initial_auth_token); } 
+                            catch (e) { await window.FB.signInAnonymously(auth); }
+                        } else { await window.FB.signInAnonymously(auth); }
+                    } catch (err) { console.error("Auth error:", err); }
                 };
-                
                 initAuth();
                 const unsubAuth = window.FB.onAuthStateChanged(auth, setUser);
 
@@ -145,74 +113,70 @@
             }, []);
 
             useEffect(() => {
-                // Carica i dati solo dopo che l'utente è autenticato
                 if (!user || !window.FB) return;
                 const db = window.FB.getFirestore();
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
+                const appId = "wedding-alessia-roberto-2026";
                 
-                const unsubP = window.FB.onSnapshot(
-                    window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'), 
-                    snap => {
-                        const data = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                        setPhotos(data.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)));
-                    },
-                    err => console.error("Errore recupero foto:", err)
+                const qPhotos = window.FB.query(
+                    window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'),
+                    window.FB.orderBy('timestamp', 'desc')
                 );
 
-                const unsubR = window.FB.onSnapshot(
-                    window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), 
-                    snap => {
-                        setRsvps(snap.docs.map(d => ({id: d.id, ...d.data()})));
-                    },
-                    err => console.error("Errore recupero RSVP:", err)
-                );
+                const unsubP = window.FB.onSnapshot(qPhotos, snap => {
+                    setPhotos(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                }, (err) => console.error("Snapshot error:", err));
+
+                const unsubR = window.FB.onSnapshot(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), snap => {
+                    setRsvps(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                });
 
                 return () => { unsubP(); unsubR(); };
             }, [user]);
 
-            const handleAdminToggle = () => {
-                clickCount.current++;
-                if (clickCount.current === 1) clickTimer.current = setTimeout(() => clickCount.current = 0, 2000);
-                if (clickCount.current >= 3) {
-                    setIsAdmin(!isAdmin);
-                    clickCount.current = 0;
-                    clearTimeout(clickTimer.current);
-                }
-            };
-
-            const handleUpload = async (e) => {
+            const handlePhotoUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file || !user) return;
                 setUploading(true);
                 const reader = new FileReader();
                 reader.onloadend = async () => {
+                    const db = window.FB.getFirestore();
+                    const appId = "wedding-alessia-roberto-2026";
                     try {
-                        const compressedBase64 = await compressImage(reader.result);
-                        const db = window.FB.getFirestore();
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
                         await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'), {
-                            url: compressedBase64, 
-                            userId: user.uid, 
+                            url: reader.result,
                             timestamp: window.FB.serverTimestamp()
                         });
-                    } catch (err) {
-                        console.error("Errore upload:", err);
-                    } finally { setUploading(false); }
+                    } catch (err) { console.error("Upload error:", err); }
+                    setUploading(false);
                 };
                 reader.readAsDataURL(file);
             };
 
-            const handleDeletePhoto = async (e, photoId) => {
-                e.preventDefault();
-                e.stopPropagation();
-                try {
-                    const db = window.FB.getFirestore();
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
-                    const photoRef = window.FB.doc(db, 'artifacts', appId, 'public', 'data', 'photos', photoId);
-                    await window.FB.deleteDoc(photoRef);
-                } catch (err) {
-                    console.error("Errore eliminazione:", err);
+            const deletePhoto = async (id) => {
+                if (!window.confirm("Vuoi eliminare questa foto?")) return;
+                const db = window.FB.getFirestore();
+                const appId = "wedding-alessia-roberto-2026";
+                await window.FB.deleteDoc(window.FB.doc(db, 'artifacts', appId, 'public', 'data', 'photos', id));
+            };
+
+            const handleAdminToggle = () => {
+                clickCount.current++;
+                if (clickCount.current === 1) clickTimer.current = setTimeout(() => clickCount.current = 0, 2000);
+                if (clickCount.current >= 3) { 
+                    setIsAdmin(!isAdmin); 
+                    clickCount.current = 0; 
                 }
+            };
+
+            const copyIban = () => {
+                const textArea = document.createElement("textarea");
+                textArea.value = IBAN;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                setCopySuccess(true);
+                setTimeout(() => setCopySuccess(false), 2000);
             };
 
             const scrollTo = (id) => {
@@ -221,109 +185,122 @@
             };
 
             return (
-                <div className="text-stone-900 min-h-screen pb-10">
+                <div className="text-stone-900 min-h-screen pb-20">
+                    {/* Navigazione */}
                     <nav className="fixed top-0 w-full z-50 py-5 px-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent">
                         <span onClick={handleAdminToggle} className="text-3xl font-bold italic text-white cursor-pointer font-cursive select-none">A & R</span>
                         <div className="flex gap-4">
-                            <button onClick={() => scrollTo('info')} className="text-white text-[10px] uppercase tracking-widest font-bold hidden md:block">Info</button>
-                            <button onClick={() => scrollTo('rsvp')} className="bg-white/20 backdrop-blur-md px-6 py-2 rounded-full border border-white/30 text-white text-[11px] font-bold uppercase tracking-widest">RSVP</button>
+                            <button onClick={() => scrollTo('locations')} className="text-white text-[10px] uppercase tracking-widest font-bold drop-shadow-md">Luoghi</button>
+                            <button onClick={() => scrollTo('photos')} className="text-white text-[10px] uppercase tracking-widest font-bold drop-shadow-md">Foto</button>
+                            <button onClick={() => scrollTo('rsvp')} className="bg-white/20 backdrop-blur-md px-6 py-2 rounded-full border border-white/30 text-white text-[11px] font-bold uppercase tracking-widest shadow-lg">RSVP</button>
                         </div>
                     </nav>
 
-                    <header className="relative w-full h-screen flex flex-col justify-center items-center overflow-hidden">
+                    {/* Hero Section */}
+                    <header className="relative w-full h-[85vh] flex flex-col justify-center items-center overflow-hidden">
                         <img src={URL_FOTO_HERO} className="absolute inset-0 w-full h-full object-cover" alt="Sposi" />
-                        <div className="absolute inset-0 bg-black/30 z-10" />
+                        <div className="absolute inset-0 bg-black/25 z-10" />
                         <div className="relative z-20 text-center px-6 animate-fade-in">
-                            <h1 className="text-7xl md:text-9xl mb-4 italic text-white font-cursive drop-shadow-lg">Alessia & Roberto</h1>
-                            <p className="text-white tracking-[0.4em] uppercase text-xs font-bold opacity-90 mb-12">11 Luglio 2026 • Vendone</p>
-                            <div className="flex gap-4 justify-center text-white">
-                                {[{label:'Giorni', v:timeLeft.days}, {label:'Ore', v:timeLeft.hours}, {label:'Min', v:timeLeft.minutes}].map((t,i) => (
-                                    <div key={i} className="bg-white/10 backdrop-blur-md p-4 rounded-2xl w-20 border border-white/20">
-                                        <span className="block text-2xl font-bold">{t.v}</span>
-                                        <span className="text-[10px] uppercase opacity-70">{t.label}</span>
+                            <h1 className="text-7xl md:text-[10rem] mb-6 text-white font-cursive drop-shadow-2xl">Alessia & Roberto</h1>
+                            <p className="text-white tracking-[0.5em] uppercase text-xs font-bold opacity-90 mb-12 drop-shadow-md">11 Luglio 2026 • Vendone</p>
+                            
+                            <div className="flex gap-4 justify-center text-white scale-90 md:scale-100">
+                                {[{label:'Giorni', v:timeLeft.days}, {label:'Ore', v:timeLeft.hours}, {label:'Minuti', v:timeLeft.minutes}].map((t,i) => (
+                                    <div key={i} className="bg-white/10 backdrop-blur-lg p-5 rounded-3xl min-w-[85px] border border-white/20 shadow-2xl">
+                                        <span className="block text-3xl font-bold">{t.v}</span>
+                                        <span className="text-[9px] uppercase tracking-widest opacity-70">{t.label}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </header>
 
-                    <section id="info" className="py-24 px-6 max-w-5xl mx-auto space-y-20 scroll-mt-20">
-                        <div className="text-center">
-                            <h2 className="text-5xl text-[#7a3e2e] font-cursive mb-4">Dove e Quando</h2>
-                            <p className="text-stone-500 uppercase tracking-widest text-[10px]">I dettagli della giornata</p>
+                    {/* Sezione Luoghi */}
+                    <section id="locations" className="py-24 px-6 max-w-6xl mx-auto scroll-mt-20">
+                        <div className="text-center mb-16">
+                            <h2 className="text-6xl text-[#7a3e2e] mb-4 italic font-cursive">Programma</h2>
+                            <p className="text-stone-400 text-[11px] uppercase tracking-[0.3em] font-bold">I luoghi del nostro sì</p>
                         </div>
-
+                        
                         <div className="grid md:grid-cols-2 gap-12">
-                            <div className="bg-white rounded-[2rem] overflow-hidden shadow-xl group border border-stone-100">
-                                <div className="h-64 overflow-hidden">
-                                    <img src={URL_FOTO_CHIESA} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Chiesa" />
+                            {/* Card Chiesa */}
+                            <div className="location-card bg-white rounded-[3.5rem] shadow-xl overflow-hidden border border-stone-100 flex flex-col">
+                                <div className="h-72 overflow-hidden">
+                                    <img src={URL_CHIESA} className="w-full h-full object-cover" alt="Panorama Vendone" />
                                 </div>
-                                <div className="p-8 text-center">
-                                    <h3 className="text-2xl font-cursive text-[#7a3e2e] mb-2">La Cerimonia</h3>
-                                    <p className="text-sm text-stone-600 mb-6 italic">Chiesa di SantÁntonino, Vendone<br/>Ore 16:00</p>
-                                    <a href="https://maps.google.com/?q=Chiesa+di+santÁntonino+Vendone" target="_blank" className="inline-block border-b border-[#7a3e2e] text-[#7a3e2e] text-[10px] font-bold uppercase tracking-widest pb-1 hover:opacity-70 transition">Apri Mappa</a>
+                                <div className="p-10 text-center flex-grow flex flex-col items-center">
+                                    <div className="bg-stone-50 w-16 h-16 rounded-full flex items-center justify-center text-2xl mb-6 shadow-inner">⛪</div>
+                                    <h3 className="text-3xl font-cursive text-[#7a3e2e] mb-2">La Cerimonia</h3>
+                                    <p className="text-stone-800 font-bold mb-1">Ore 16:00</p>
+                                    <p className="text-stone-500 mb-6 uppercase text-[12px] tracking-widest">Chiesa di Sant'Antonino, Vendone</p>
+                                    <a href="https://maps.google.com/?q=Chiesa+Sant+Antonino+Vendone" target="_blank" className="mt-auto inline-block text-[#7a3e2e] text-[10px] font-bold border-b-2 border-[#7a3e2e]/20 hover:border-[#7a3e2e] pb-1 uppercase tracking-widest transition-all">Apri navigatore</a>
                                 </div>
                             </div>
-
-                            <div className="bg-white rounded-[2rem] overflow-hidden shadow-xl group border border-stone-100">
-                                <div className="h-64 overflow-hidden">
-                                    <img src={URL_FOTO_LOCATION} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Ricevimento" />
+                            
+                            {/* Card Ricevimento */}
+                            <div className="location-card bg-white rounded-[3.5rem] shadow-xl overflow-hidden border border-stone-100 flex flex-col">
+                                <div className="h-72 overflow-hidden">
+                                    <img src={URL_RICEVIMENTO} className="w-full h-full object-cover" alt="Relais Borgofasceo" />
                                 </div>
-                                <div className="p-8 text-center">
-                                    <h3 className="text-2xl font-cursive text-[#7a3e2e] mb-2">Il Ricevimento</h3>
-                                    <p className="text-sm text-stone-600 mb-6 italic">Borgo Fasceo, Ortovero<br/>A seguire</p>
-                                    <a href="https://maps.google.com/?q=Borgo+Fasceo+Ortovero" target="_blank" className="inline-block border-b border-[#7a3e2e] text-[#7a3e2e] text-[10px] font-bold uppercase tracking-widest pb-1 hover:opacity-70 transition">Apri Mappa</a>
+                                <div className="p-10 text-center flex-grow flex flex-col items-center">
+                                    <div className="bg-stone-50 w-16 h-16 rounded-full flex items-center justify-center text-2xl mb-6 shadow-inner">🥂</div>
+                                    <h3 className="text-3xl font-cursive text-[#7a3e2e] mb-2">Il Ricevimento</h3>
+                                    <p className="text-stone-800 font-bold mb-1">A seguire</p>
+                                    <p className="text-stone-500 mb-6 uppercase text-[12px] tracking-widest">Relais Borgofasceo, Ortovero</p>
+                                    <a href="https://maps.google.com/?q=Relais+Borgofasceo+Ortovero" target="_blank" className="mt-auto inline-block text-[#7a3e2e] text-[10px] font-bold border-b-2 border-[#7a3e2e]/20 hover:border-[#7a3e2e] pb-1 uppercase tracking-widest transition-all">Apri navigatore</a>
                                 </div>
                             </div>
                         </div>
                     </section>
 
-                    <section id="rsvp" className="py-20 px-6 max-w-sm mx-auto scroll-mt-20">
-                        <div className="bg-white p-10 rounded-[3rem] shadow-2xl text-center border border-orange-50">
-                            {!submitted ? (
-                                <form onSubmit={async (e) => {
-                                    e.preventDefault();
-                                    if (!user) return;
-                                    const db = window.FB.getFirestore();
-                                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'wedding-alessia-roberto-2026';
-                                    await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), { ...formData, timestamp: window.FB.serverTimestamp() });
-                                    setSubmitted(true);
-                                }} className="space-y-8">
-                                    <h2 className="text-4xl text-[#7a3e2e] font-cursive">Ci sarete?</h2>
-                                    <input type="text" required placeholder="Il tuo nome" onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border-b py-2 text-center focus:outline-none focus:border-[#7a3e2e] bg-transparent text-lg" />
-                                    <div className="flex gap-2">
-                                        <button type="button" onClick={() => setFormData({...formData, attending:'si'})} className={`flex-1 py-4 rounded-xl font-bold text-[10px] tracking-widest transition-all ${formData.attending==='si'?'bg-[#7a3e2e] text-white shadow-md':'bg-stone-100 text-stone-400'}`}>SÌ</button>
-                                        <button type="button" onClick={() => setFormData({...formData, attending:'no'})} className={`flex-1 py-4 rounded-xl font-bold text-[10px] tracking-widest transition-all ${formData.attending==='no'?'bg-stone-800 text-white shadow-md':'bg-stone-100 text-stone-400'}`}>NO</button>
-                                    </div>
-                                    <button type="submit" className="w-full bg-[#7a3e2e] text-white py-4 rounded-full font-bold uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-transform">Invia Risposta</button>
-                                </form>
-                            ) : (
-                                <div className="py-10 animate-fade-in">
-                                    <p className="text-4xl text-[#7a3e2e] font-cursive mb-2">Grazie! ❤️</p>
-                                    <p className="text-[10px] uppercase tracking-widest opacity-50">Risposta inviata</p>
+                    {/* Lista Nozze */}
+                    <section className="py-24 px-6 bg-stone-100 border-y border-stone-200">
+                        <div className="max-w-xl mx-auto text-center">
+                            <h2 className="text-6xl text-[#7a3e2e] mb-8 italic font-cursive">Lista Nozze</h2>
+                            <p className="text-stone-600 mb-12 italic leading-relaxed">
+                                Il regalo più grande sarà la vostra presenza. <br/>
+                                Se però desiderate farci un pensiero, ecco come aiutarci a realizzare i nostri sogni.
+                            </p>
+                            
+                            <div className="bg-white p-10 rounded-[3rem] shadow-xl mb-10 group cursor-pointer relative overflow-hidden" onClick={copyIban}>
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-100 transition-opacity">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
                                 </div>
-                            )}
+                                <span className="text-[10px] uppercase font-bold text-stone-400 tracking-widest mb-4 block">Copia IBAN</span>
+                                <p className="text-stone-800 font-mono text-[14px] md:text-[16px] break-all font-bold tracking-tight">
+                                    {copySuccess ? "IBAN COPIATO NEGLI APPUNTI! ✅" : IBAN}
+                                </p>
+                            </div>
+
+                            <a href="https://paypal.me/AlessiaRabellino" target="_blank" className="inline-flex items-center gap-4 bg-[#0070ba] text-white px-14 py-5 rounded-full font-bold text-[12px] uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all">
+                                <span>Contributo con PayPal</span>
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.067 8.178c0 2.846-2.103 5.48-5.48 5.48h-1.482l-.618 3.597-.02.12h-2.181l.011-.059.85-4.949.03-.173h2.384c2.251 0 3.737-1.42 3.737-3.376 0-1.87-1.161-3.232-2.946-3.232H9.863L8.242 16.59H6.061L8.33 3.39h6.494c2.937 0 5.243 1.83 5.243 4.788zM6.662 16.03h2.181l-.403 2.348h-2.182z"/></svg>
+                            </a>
                         </div>
                     </section>
 
-                    <section className="py-12 px-6 text-center max-w-5xl mx-auto">
-                        <h2 className="text-4xl text-[#7a3e2e] mb-2 font-cursive">Momenti Condivisi del nostro Matrimonio</h2>
-                        <label className="cursor-pointer bg-[#7a3e2e] text-white px-8 py-4 rounded-full font-bold text-[11px] shadow-lg inline-block active:scale-95 transition-transform my-8">
-                            {uploading ? 'CARICAMENTO...' : '📸 CARICA FOTO'}
-                            <input type="file" accept="image/*" onChange={handleUpload} className="hidden" disabled={uploading} />
-                        </label>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {photos.map(p => (
-                                <div key={p.id} className="aspect-square rounded-2xl overflow-hidden shadow-md border-4 border-white relative group animate-fade-in">
-                                    <img src={p.url} className="w-full h-full object-cover cursor-zoom-in" onClick={() => setSelectedPhoto(p.url)} alt="Foto condivisa" />
-                                    {(isAdmin || (user && p.userId === user.uid)) && (
-                                        <button 
-                                            onClick={(e) => handleDeletePhoto(e, p.id)} 
-                                            className="absolute top-2 right-2 bg-white/90 p-2 rounded-full text-red-600 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shadow-lg z-10 scale-90 active:scale-75"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
+                    {/* Album Foto */}
+                    <section id="photos" className="py-24 px-6 max-w-6xl mx-auto scroll-mt-20">
+                        <div className="text-center mb-16">
+                            <h2 className="text-6xl text-[#7a3e2e] mb-4 italic font-cursive">Album di Nozze</h2>
+                            <p className="text-stone-400 text-[11px] uppercase tracking-[0.3em] font-bold">Condividete i vostri ricordi con noi</p>
+                        </div>
+                        
+                        <div className="flex justify-center mb-16">
+                            <label className={`group cursor-pointer bg-[#7a3e2e] text-white px-12 py-6 rounded-full font-bold uppercase text-[12px] tracking-[0.2em] shadow-2xl inline-flex items-center gap-4 transition-all hover:bg-[#8e4a37] ${uploading ? 'opacity-50' : 'active:scale-95'}`}>
+                                <svg className={`w-6 h-6 ${uploading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                <span>{uploading ? 'CARICAMENTO IN CORSO...' : 'CARICA LE TUE FOTO'}</span>
+                                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploading} />
+                            </label>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                            {photos.map(photo => (
+                                <div key={photo.id} className="relative aspect-square rounded-[2rem] overflow-hidden shadow-xl group cursor-zoom-in">
+                                    <img src={photo.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
+                                    {isAdmin && (
+                                        <button onClick={(e) => { e.stopPropagation(); deletePhoto(photo.id); }} className="absolute top-4 right-4 bg-red-600/80 backdrop-blur-md text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg z-30 transition-transform hover:scale-110">
+                                            ✕
                                         </button>
                                     )}
                                 </div>
@@ -331,32 +308,75 @@
                         </div>
                     </section>
 
-                    {isAdmin && (
-                        <div className="max-w-md mx-auto mt-20 bg-stone-900 text-white p-8 rounded-[2.5rem] shadow-2xl animate-fade-in">
-                            <h3 className="text-xs font-bold border-b border-white/10 pb-4 mb-6 flex justify-between tracking-widest uppercase">
-                                <span>Lista Invitati</span>
-                                <span className="text-orange-300">
-                                    {rsvps.filter(r => r.attending === 'si').length} PRESENTI
-                                </span>
-                            </h3>
-                            <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-2">
-                                {rsvps.map(r => (
-                                    <div key={r.id} className="flex justify-between items-center text-[11px] py-1 border-b border-white/5">
-                                        <span className="font-bold uppercase tracking-tight">{r.name || 'Anonimo'}</span>
-                                        <span className={(r.attending || 'si') === 'si' ? 'text-green-400' : 'text-red-400'}>
-                                            {(r.attending || 'n/a').toUpperCase()}
-                                        </span>
+                    {/* RSVP */}
+                    <section id="rsvp" className="py-24 px-6 max-w-md mx-auto scroll-mt-20">
+                        <div className="bg-white p-12 rounded-[4rem] shadow-2xl text-center border border-stone-100">
+                            {!submitted ? (
+                                <form onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    if (!user) return;
+                                    const db = window.FB.getFirestore();
+                                    const appId = "wedding-alessia-roberto-2026";
+                                    await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), { 
+                                        name: formData.name, 
+                                        status: formData.attending,
+                                        timestamp: window.FB.serverTimestamp() 
+                                    });
+                                    setSubmitted(true);
+                                }} className="space-y-10">
+                                    <h2 className="text-5xl text-[#7a3e2e] font-cursive">Conferma Presenza</h2>
+                                    <div className="space-y-4">
+                                        <label className="text-[10px] uppercase font-bold text-stone-400 tracking-widest block">Nome e Cognome</label>
+                                        <input type="text" required placeholder="Inserisci qui..." value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border-b-2 border-stone-100 py-3 text-center focus:border-[#7a3e2e] focus:outline-none bg-transparent text-xl font-medium transition-colors" />
                                     </div>
-                                ))}
+                                    
+                                    <div className="flex gap-4">
+                                        <button type="button" onClick={() => setFormData({...formData, attending:'si'})} className={`flex-1 py-5 rounded-3xl font-bold text-[11px] tracking-widest transition-all ${formData.attending==='si'?'bg-[#7a3e2e] text-white shadow-xl scale-105':'bg-stone-50 text-stone-400 hover:bg-stone-100'}`}>SÌ, CI SARÒ</button>
+                                        <button type="button" onClick={() => setFormData({...formData, attending:'no'})} className={`flex-1 py-5 rounded-3xl font-bold text-[11px] tracking-widest transition-all ${formData.attending==='no'?'bg-stone-800 text-white shadow-xl scale-105':'bg-stone-50 text-stone-400 hover:bg-stone-100'}`}>NON RIESCO</button>
+                                    </div>
+                                    
+                                    <button type="submit" className="w-full bg-[#7a3e2e] text-white py-5 rounded-full font-bold uppercase text-[12px] tracking-[0.2em] shadow-2xl hover:bg-[#8e4a37] transition-all">Invia RSVP</button>
+                                </form>
+                            ) : (
+                                <div className="py-12 animate-fade-in">
+                                    <div className="text-6xl mb-6">❤️</div>
+                                    <p className="text-4xl font-cursive text-[#7a3e2e] mb-4">Grazie mille!</p>
+                                    <p className="text-[11px] uppercase tracking-[0.2em] text-stone-400 leading-loose">La tua risposta è stata salvata correttamente.</p>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
+                    {/* Pannello Admin */}
+                    {isAdmin && (
+                        <div className="max-w-2xl mx-auto mt-20 px-6 animate-fade-in">
+                            <div className="bg-stone-900 text-white p-10 rounded-[3.5rem] shadow-2xl">
+                                <div className="flex justify-between items-center border-b border-white/10 pb-6 mb-8">
+                                    <h3 className="text-xs font-bold tracking-[0.3em] uppercase">Riepilogo Risposte</h3>
+                                    <span className="bg-orange-400/20 text-orange-400 px-4 py-1 rounded-full text-[10px] font-bold">
+                                        {rsvps.filter(r => r.status === 'si').length} PRESENTI
+                                    </span>
+                                </div>
+                                <div className="space-y-4 max-h-80 overflow-y-auto custom-scrollbar pr-4">
+                                    {rsvps.map(r => (
+                                        <div key={r.id} className="flex justify-between items-center text-[12px] py-3 border-b border-white/5 last:border-0">
+                                            <span className="font-bold uppercase tracking-wider">{r.name || 'Anonimo'}</span>
+                                            <span className={`px-3 py-1 rounded-full text-[9px] font-bold ${r.status === 'si' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                                                {(r.status || 'n/a').toUpperCase()}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    {selectedPhoto && (
-                        <div className="fixed inset-0 z-[1000] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in" onClick={() => setSelectedPhoto(null)}>
-                            <img src={selectedPhoto} className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
-                        </div>
-                    )}
+                    {/* Footer */}
+                    <footer className="mt-32 py-20 text-center border-t border-stone-100">
+                        <p className="text-5xl font-cursive text-[#7a3e2e] mb-6">Alessia & Roberto</p>
+                        <div className="w-12 h-[1px] bg-stone-200 mx-auto mb-6"></div>
+                        <p className="text-[10px] uppercase tracking-[0.5em] text-stone-400">11 Luglio 2026</p>
+                    </footer>
                 </div>
             );
         };
