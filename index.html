@@ -59,12 +59,12 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Configurazione Immagini e Dati
         const URL_FOTO_HERO = "https://raw.githubusercontent.com/Matteo20240405/matrimonio-Aleroby/main/IMG-20260103-WA0013.jpg";
         const URL_CHIESA = "https://upload.wikimedia.org/wikipedia/commons/9/92/Vendone-panorama.jpg";
         const URL_RICEVIMENTO = "https://borgofasceo.it/wp-content/uploads/2025/05/relais-drone-laterale.jpg";
         const DATA_MATRIMONIO = new Date("2026-07-11T16:00:00");
         const IBAN = "IT28W0538710611000004465451";
+        const APP_ID = "wedding-alessia-roberto-2026";
 
         const App = () => {
             const [user, setUser] = useState(null);
@@ -115,20 +115,24 @@
             useEffect(() => {
                 if (!user || !window.FB) return;
                 const db = window.FB.getFirestore();
-                const appId = "wedding-alessia-roberto-2026";
                 
+                // Listener Foto
                 const qPhotos = window.FB.query(
-                    window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'),
+                    window.FB.collection(db, 'artifacts', APP_ID, 'public', 'data', 'photos'),
                     window.FB.orderBy('timestamp', 'desc')
                 );
-
                 const unsubP = window.FB.onSnapshot(qPhotos, snap => {
                     setPhotos(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 }, (err) => console.error("Snapshot error:", err));
 
-                const unsubR = window.FB.onSnapshot(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), snap => {
+                // Listener RSVP
+                const qRsvp = window.FB.query(
+                    window.FB.collection(db, 'artifacts', APP_ID, 'public', 'data', 'rsvp'),
+                    window.FB.orderBy('timestamp', 'desc')
+                );
+                const unsubR = window.FB.onSnapshot(qRsvp, snap => {
                     setRsvps(snap.docs.map(d => ({id: d.id, ...d.data()})));
-                });
+                }, (err) => console.error("RSVP Snapshot error:", err));
 
                 return () => { unsubP(); unsubR(); };
             }, [user]);
@@ -140,9 +144,8 @@
                 const reader = new FileReader();
                 reader.onloadend = async () => {
                     const db = window.FB.getFirestore();
-                    const appId = "wedding-alessia-roberto-2026";
                     try {
-                        await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'photos'), {
+                        await window.FB.addDoc(window.FB.collection(db, 'artifacts', APP_ID, 'public', 'data', 'photos'), {
                             url: reader.result,
                             timestamp: window.FB.serverTimestamp()
                         });
@@ -155,8 +158,13 @@
             const deletePhoto = async (id) => {
                 if (!window.confirm("Vuoi eliminare questa foto?")) return;
                 const db = window.FB.getFirestore();
-                const appId = "wedding-alessia-roberto-2026";
-                await window.FB.deleteDoc(window.FB.doc(db, 'artifacts', appId, 'public', 'data', 'photos', id));
+                await window.FB.deleteDoc(window.FB.doc(db, 'artifacts', APP_ID, 'public', 'data', 'photos', id));
+            };
+
+            const deleteRsvp = async (id) => {
+                if (!window.confirm("Vuoi eliminare questa risposta?")) return;
+                const db = window.FB.getFirestore();
+                await window.FB.deleteDoc(window.FB.doc(db, 'artifacts', APP_ID, 'public', 'data', 'rsvp', id));
             };
 
             const handleAdminToggle = () => {
@@ -184,9 +192,11 @@
                 if(el) el.scrollIntoView({ behavior: 'smooth' });
             };
 
+            // Calcolo conteggio reali presenti
+            const numPresenti = rsvps.filter(r => r.status === 'si' || r.attending === 'si').length;
+
             return (
                 <div className="text-stone-900 min-h-screen pb-20">
-                    {/* Navigazione */}
                     <nav className="fixed top-0 w-full z-50 py-5 px-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent">
                         <span onClick={handleAdminToggle} className="text-3xl font-bold italic text-white cursor-pointer font-cursive select-none">A & R</span>
                         <div className="flex gap-4">
@@ -196,7 +206,6 @@
                         </div>
                     </nav>
 
-                    {/* Hero Section */}
                     <header className="relative w-full h-[85vh] flex flex-col justify-center items-center overflow-hidden">
                         <img src={URL_FOTO_HERO} className="absolute inset-0 w-full h-full object-cover" alt="Sposi" />
                         <div className="absolute inset-0 bg-black/25 z-10" />
@@ -215,19 +224,14 @@
                         </div>
                     </header>
 
-                    {/* Sezione Luoghi */}
                     <section id="locations" className="py-24 px-6 max-w-6xl mx-auto scroll-mt-20">
                         <div className="text-center mb-16">
                             <h2 className="text-6xl text-[#7a3e2e] mb-4 italic font-cursive">Programma</h2>
                             <p className="text-stone-400 text-[11px] uppercase tracking-[0.3em] font-bold">I luoghi del nostro sì</p>
                         </div>
-                        
                         <div className="grid md:grid-cols-2 gap-12">
-                            {/* Card Chiesa */}
                             <div className="location-card bg-white rounded-[3.5rem] shadow-xl overflow-hidden border border-stone-100 flex flex-col">
-                                <div className="h-72 overflow-hidden">
-                                    <img src={URL_CHIESA} className="w-full h-full object-cover" alt="Panorama Vendone" />
-                                </div>
+                                <div className="h-72 overflow-hidden"><img src={URL_CHIESA} className="w-full h-full object-cover" alt="Panorama Vendone" /></div>
                                 <div className="p-10 text-center flex-grow flex flex-col items-center">
                                     <div className="bg-stone-50 w-16 h-16 rounded-full flex items-center justify-center text-2xl mb-6 shadow-inner">⛪</div>
                                     <h3 className="text-3xl font-cursive text-[#7a3e2e] mb-2">La Cerimonia</h3>
@@ -236,12 +240,8 @@
                                     <a href="https://maps.google.com/?q=Chiesa+Sant+Antonino+Vendone" target="_blank" className="mt-auto inline-block text-[#7a3e2e] text-[10px] font-bold border-b-2 border-[#7a3e2e]/20 hover:border-[#7a3e2e] pb-1 uppercase tracking-widest transition-all">Apri navigatore</a>
                                 </div>
                             </div>
-                            
-                            {/* Card Ricevimento */}
                             <div className="location-card bg-white rounded-[3.5rem] shadow-xl overflow-hidden border border-stone-100 flex flex-col">
-                                <div className="h-72 overflow-hidden">
-                                    <img src={URL_RICEVIMENTO} className="w-full h-full object-cover" alt="Relais Borgofasceo" />
-                                </div>
+                                <div className="h-72 overflow-hidden"><img src={URL_RICEVIMENTO} className="w-full h-full object-cover" alt="Relais Borgofasceo" /></div>
                                 <div className="p-10 text-center flex-grow flex flex-col items-center">
                                     <div className="bg-stone-50 w-16 h-16 rounded-full flex items-center justify-center text-2xl mb-6 shadow-inner">🥂</div>
                                     <h3 className="text-3xl font-cursive text-[#7a3e2e] mb-2">Il Ricevimento</h3>
@@ -253,25 +253,17 @@
                         </div>
                     </section>
 
-                    {/* Lista Nozze */}
                     <section className="py-24 px-6 bg-stone-100 border-y border-stone-200">
                         <div className="max-w-xl mx-auto text-center">
                             <h2 className="text-6xl text-[#7a3e2e] mb-8 italic font-cursive">Lista Nozze</h2>
-                            <p className="text-stone-600 mb-12 italic leading-relaxed">
-                                Il regalo più grande sarà la vostra presenza. <br/>
-                                Se però desiderate farci un pensiero, ecco come aiutarci a realizzare i nostri sogni.
-                            </p>
-                            
+                            <p className="text-stone-600 mb-12 italic leading-relaxed">Il regalo più grande sarà la vostra presenza. Se desiderate farci un pensiero, ecco come aiutarci a realizzare i nostri sogni.</p>
                             <div className="bg-white p-10 rounded-[3rem] shadow-xl mb-10 group cursor-pointer relative overflow-hidden" onClick={copyIban}>
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-100 transition-opacity">
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
                                 </div>
                                 <span className="text-[10px] uppercase font-bold text-stone-400 tracking-widest mb-4 block">Copia IBAN</span>
-                                <p className="text-stone-800 font-mono text-[14px] md:text-[16px] break-all font-bold tracking-tight">
-                                    {copySuccess ? "IBAN COPIATO NEGLI APPUNTI! ✅" : IBAN}
-                                </p>
+                                <p className="text-stone-800 font-mono text-[14px] md:text-[16px] break-all font-bold tracking-tight">{copySuccess ? "IBAN COPIATO NEGLI APPUNTI! ✅" : IBAN}</p>
                             </div>
-
                             <a href="https://paypal.me/AlessiaRabellino" target="_blank" className="inline-flex items-center gap-4 bg-[#0070ba] text-white px-14 py-5 rounded-full font-bold text-[12px] uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all">
                                 <span>Contributo con PayPal</span>
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.067 8.178c0 2.846-2.103 5.48-5.48 5.48h-1.482l-.618 3.597-.02.12h-2.181l.011-.059.85-4.949.03-.173h2.384c2.251 0 3.737-1.42 3.737-3.376 0-1.87-1.161-3.232-2.946-3.232H9.863L8.242 16.59H6.061L8.33 3.39h6.494c2.937 0 5.243 1.83 5.243 4.788zM6.662 16.03h2.181l-.403 2.348h-2.182z"/></svg>
@@ -279,13 +271,11 @@
                         </div>
                     </section>
 
-                    {/* Album Foto */}
                     <section id="photos" className="py-24 px-6 max-w-6xl mx-auto scroll-mt-20">
                         <div className="text-center mb-16">
                             <h2 className="text-6xl text-[#7a3e2e] mb-4 italic font-cursive">Album di Nozze</h2>
                             <p className="text-stone-400 text-[11px] uppercase tracking-[0.3em] font-bold">Condividete i vostri ricordi con noi</p>
                         </div>
-                        
                         <div className="flex justify-center mb-16">
                             <label className={`group cursor-pointer bg-[#7a3e2e] text-white px-12 py-6 rounded-full font-bold uppercase text-[12px] tracking-[0.2em] shadow-2xl inline-flex items-center gap-4 transition-all hover:bg-[#8e4a37] ${uploading ? 'opacity-50' : 'active:scale-95'}`}>
                                 <svg className={`w-6 h-6 ${uploading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
@@ -293,22 +283,18 @@
                                 <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploading} />
                             </label>
                         </div>
-
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                             {photos.map(photo => (
                                 <div key={photo.id} className="relative aspect-square rounded-[2rem] overflow-hidden shadow-xl group cursor-zoom-in">
                                     <img src={photo.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
                                     {isAdmin && (
-                                        <button onClick={(e) => { e.stopPropagation(); deletePhoto(photo.id); }} className="absolute top-4 right-4 bg-red-600/80 backdrop-blur-md text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg z-30 transition-transform hover:scale-110">
-                                            ✕
-                                        </button>
+                                        <button onClick={(e) => { e.stopPropagation(); deletePhoto(photo.id); }} className="absolute top-4 right-4 bg-red-600/80 backdrop-blur-md text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg z-30 transition-transform hover:scale-110">✕</button>
                                     )}
                                 </div>
                             ))}
                         </div>
                     </section>
 
-                    {/* RSVP */}
                     <section id="rsvp" className="py-24 px-6 max-w-md mx-auto scroll-mt-20">
                         <div className="bg-white p-12 rounded-[4rem] shadow-2xl text-center border border-stone-100">
                             {!submitted ? (
@@ -316,8 +302,7 @@
                                     e.preventDefault();
                                     if (!user) return;
                                     const db = window.FB.getFirestore();
-                                    const appId = "wedding-alessia-roberto-2026";
-                                    await window.FB.addDoc(window.FB.collection(db, 'artifacts', appId, 'public', 'data', 'rsvp'), { 
+                                    await window.FB.addDoc(window.FB.collection(db, 'artifacts', APP_ID, 'public', 'data', 'rsvp'), { 
                                         name: formData.name, 
                                         status: formData.attending,
                                         timestamp: window.FB.serverTimestamp() 
@@ -329,12 +314,10 @@
                                         <label className="text-[10px] uppercase font-bold text-stone-400 tracking-widest block">Nome e Cognome</label>
                                         <input type="text" required placeholder="Inserisci qui..." value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border-b-2 border-stone-100 py-3 text-center focus:border-[#7a3e2e] focus:outline-none bg-transparent text-xl font-medium transition-colors" />
                                     </div>
-                                    
                                     <div className="flex gap-4">
                                         <button type="button" onClick={() => setFormData({...formData, attending:'si'})} className={`flex-1 py-5 rounded-3xl font-bold text-[11px] tracking-widest transition-all ${formData.attending==='si'?'bg-[#7a3e2e] text-white shadow-xl scale-105':'bg-stone-50 text-stone-400 hover:bg-stone-100'}`}>SÌ, CI SARÒ</button>
                                         <button type="button" onClick={() => setFormData({...formData, attending:'no'})} className={`flex-1 py-5 rounded-3xl font-bold text-[11px] tracking-widest transition-all ${formData.attending==='no'?'bg-stone-800 text-white shadow-xl scale-105':'bg-stone-50 text-stone-400 hover:bg-stone-100'}`}>NON RIESCO</button>
                                     </div>
-                                    
                                     <button type="submit" className="w-full bg-[#7a3e2e] text-white py-5 rounded-full font-bold uppercase text-[12px] tracking-[0.2em] shadow-2xl hover:bg-[#8e4a37] transition-all">Invia RSVP</button>
                                 </form>
                             ) : (
@@ -347,31 +330,35 @@
                         </div>
                     </section>
 
-                    {/* Pannello Admin */}
                     {isAdmin && (
                         <div className="max-w-2xl mx-auto mt-20 px-6 animate-fade-in">
                             <div className="bg-stone-900 text-white p-10 rounded-[3.5rem] shadow-2xl">
                                 <div className="flex justify-between items-center border-b border-white/10 pb-6 mb-8">
                                     <h3 className="text-xs font-bold tracking-[0.3em] uppercase">Riepilogo Risposte</h3>
-                                    <span className="bg-orange-400/20 text-orange-400 px-4 py-1 rounded-full text-[10px] font-bold">
-                                        {rsvps.filter(r => r.status === 'si').length} PRESENTI
+                                    <span className="bg-orange-400/20 text-orange-400 px-4 py-1 rounded-full text-[10px] font-bold uppercase">
+                                        {numPresenti} PRESENTI
                                     </span>
                                 </div>
                                 <div className="space-y-4 max-h-80 overflow-y-auto custom-scrollbar pr-4">
-                                    {rsvps.map(r => (
-                                        <div key={r.id} className="flex justify-between items-center text-[12px] py-3 border-b border-white/5 last:border-0">
-                                            <span className="font-bold uppercase tracking-wider">{r.name || 'Anonimo'}</span>
-                                            <span className={`px-3 py-1 rounded-full text-[9px] font-bold ${r.status === 'si' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-                                                {(r.status || 'n/a').toUpperCase()}
-                                            </span>
-                                        </div>
-                                    ))}
+                                    {rsvps.length === 0 ? <p className="text-stone-500 italic text-center py-4">Nessuna risposta ricevuta.</p> : rsvps.map(r => {
+                                        const isAttending = r.status === 'si' || r.attending === 'si';
+                                        return (
+                                            <div key={r.id} className="flex justify-between items-center text-[12px] py-3 border-b border-white/5 last:border-0 group">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="font-bold uppercase tracking-wider">{r.name || 'Anonimo'}</span>
+                                                    <button onClick={() => deleteRsvp(r.id)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-500 transition-opacity">Elimina</button>
+                                                </div>
+                                                <span className={`px-4 py-1 rounded-full text-[9px] font-bold ${isAttending ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                                                    {isAttending ? 'SÌ, CI SARÒ' : 'NON RIESCO'}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Footer */}
                     <footer className="mt-32 py-20 text-center border-t border-stone-100">
                         <p className="text-5xl font-cursive text-[#7a3e2e] mb-6">Alessia & Roberto</p>
                         <div className="w-12 h-[1px] bg-stone-200 mx-auto mb-6"></div>
