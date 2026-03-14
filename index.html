@@ -28,6 +28,7 @@
         .scroll-mt-20 { scroll-margin-top: 5rem; }
         .location-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .location-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+        .lightbox-enter { animation: fadeIn 0.3s ease-out; }
     </style>
 </head>
 <body>
@@ -74,6 +75,7 @@
             const [submitted, setSubmitted] = useState(false);
             const [isAdmin, setIsAdmin] = useState(false);
             const [uploading, setUploading] = useState(false);
+            const [selectedPhoto, setSelectedPhoto] = useState(null);
             const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
             const [copySuccess, setCopySuccess] = useState(false);
             
@@ -116,7 +118,6 @@
                 if (!user || !window.FB) return;
                 const db = window.FB.getFirestore();
                 
-                // Listener Foto
                 const qPhotos = window.FB.query(
                     window.FB.collection(db, 'artifacts', APP_ID, 'public', 'data', 'photos'),
                     window.FB.orderBy('timestamp', 'desc')
@@ -125,7 +126,6 @@
                     setPhotos(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 }, (err) => console.error("Snapshot error:", err));
 
-                // Listener RSVP
                 const qRsvp = window.FB.query(
                     window.FB.collection(db, 'artifacts', APP_ID, 'public', 'data', 'rsvp'),
                     window.FB.orderBy('timestamp', 'desc')
@@ -155,10 +155,14 @@
                 reader.readAsDataURL(file);
             };
 
-            const deletePhoto = async (id) => {
-                if (!window.confirm("Vuoi eliminare questa foto?")) return;
+            const deletePhoto = async (id, e) => {
+                if(e) e.stopPropagation();
+                if (!window.confirm("Vuoi eliminare questa foto definitivamente?")) return;
                 const db = window.FB.getFirestore();
-                await window.FB.deleteDoc(window.FB.doc(db, 'artifacts', APP_ID, 'public', 'data', 'photos', id));
+                try {
+                    await window.FB.deleteDoc(window.FB.doc(db, 'artifacts', APP_ID, 'public', 'data', 'photos', id));
+                    if(selectedPhoto && selectedPhoto.id === id) setSelectedPhoto(null);
+                } catch (err) { console.error("Delete error:", err); }
             };
 
             const deleteRsvp = async (id) => {
@@ -169,10 +173,15 @@
 
             const handleAdminToggle = () => {
                 clickCount.current++;
-                if (clickCount.current === 1) clickTimer.current = setTimeout(() => clickCount.current = 0, 2000);
+                if (clickCount.current === 1) {
+                    clickTimer.current = setTimeout(() => {
+                        clickCount.current = 0;
+                    }, 2000);
+                }
                 if (clickCount.current >= 3) { 
                     setIsAdmin(!isAdmin); 
                     clickCount.current = 0; 
+                    clearTimeout(clickTimer.current);
                 }
             };
 
@@ -192,11 +201,26 @@
                 if(el) el.scrollIntoView({ behavior: 'smooth' });
             };
 
-            // Calcolo conteggio reali presenti
             const numPresenti = rsvps.filter(r => r.status === 'si' || r.attending === 'si').length;
 
             return (
                 <div className="text-stone-900 min-h-screen pb-20">
+                    {/* Lightbox Modal */}
+                    {selectedPhoto && (
+                        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 lightbox-enter" onClick={() => setSelectedPhoto(null)}>
+                            <button className="absolute top-6 right-6 text-white text-4xl hover:scale-110 transition-transform" onClick={() => setSelectedPhoto(null)}>✕</button>
+                            <img src={selectedPhoto.url} className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+                            {isAdmin && (
+                                <button 
+                                    onClick={(e) => deletePhoto(selectedPhoto.id, e)} 
+                                    className="absolute bottom-10 bg-red-600 text-white px-8 py-3 rounded-full font-bold uppercase tracking-widest text-xs shadow-xl"
+                                >
+                                    Elimina questa foto
+                                </button>
+                            )}
+                        </div>
+                    )}
+
                     <nav className="fixed top-0 w-full z-50 py-5 px-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent">
                         <span onClick={handleAdminToggle} className="text-3xl font-bold italic text-white cursor-pointer font-cursive select-none">A & R</span>
                         <div className="flex gap-4">
@@ -284,12 +308,27 @@
                             </label>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                            {photos.map(photo => (
-                                <div key={photo.id} className="relative aspect-square rounded-[2rem] overflow-hidden shadow-xl group cursor-zoom-in">
+                            {photos.length === 0 ? (
+                                <p className="col-span-full text-center text-stone-300 italic py-20">Ancora nessuna foto, carica la prima!</p>
+                            ) : photos.map(photo => (
+                                <div 
+                                    key={photo.id} 
+                                    onClick={() => setSelectedPhoto(photo)}
+                                    className="relative aspect-square rounded-[2rem] overflow-hidden shadow-xl group cursor-zoom-in"
+                                >
                                     <img src={photo.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
                                     {isAdmin && (
-                                        <button onClick={(e) => { e.stopPropagation(); deletePhoto(photo.id); }} className="absolute top-4 right-4 bg-red-600/80 backdrop-blur-md text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg z-30 transition-transform hover:scale-110">✕</button>
+                                        <button 
+                                            onClick={(e) => deletePhoto(photo.id, e)} 
+                                            className="absolute top-4 right-4 bg-red-600/90 backdrop-blur-md text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg z-30 transition-transform hover:scale-110 opacity-0 group-hover:opacity-100"
+                                            title="Elimina foto"
+                                        >
+                                            ✕
+                                        </button>
                                     )}
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <span className="text-white text-[10px] font-bold uppercase tracking-widest">Ingrandisci</span>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -325,6 +364,7 @@
                                     <div className="text-6xl mb-6">❤️</div>
                                     <p className="text-4xl font-cursive text-[#7a3e2e] mb-4">Grazie mille!</p>
                                     <p className="text-[11px] uppercase tracking-[0.2em] text-stone-400 leading-loose">La tua risposta è stata salvata correttamente.</p>
+                                    <button onClick={() => setSubmitted(false)} className="mt-8 text-[10px] font-bold text-stone-400 underline uppercase tracking-widest">Invia un'altra conferma</button>
                                 </div>
                             )}
                         </div>
